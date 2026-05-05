@@ -1,0 +1,79 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Cliente {
+  id        Int      @id @default(autoincrement())
+  nombre    String   @db.VarChar(150)
+  telefono  String?  @db.VarChar(20)
+  nit       String?  @db.VarChar(20)
+  direccion String?  @db.Text
+  correo          String?   @db.VarChar(150)
+  genero          String?   @db.VarChar(10)
+  fechaNacimiento DateTime? @map("fecha_nacimiento")
+  createdAt       DateTime  @default(now()) @map("created_at")
+
+  ordenes Orden[]
+
+  @@map("clientes")
+}
+
+model Orden {
+  id            Int       @id @default(autoincrement())
+  numeroOrden   String    @unique @db.VarChar(10) @map("numero_orden")
+  clienteId     Int       @map("cliente_id")
+  fechaIngreso  DateTime  @map("fecha_ingreso")
+  fechaEntrega  DateTime? @map("fecha_entrega")
+  formaPago     String?   @db.VarChar(20) @map("forma_pago")
+  anticipo      Decimal   @default(0) @db.Decimal(10, 2)
+  total         Decimal   @default(0) @db.Decimal(10, 2)
+  estado        String    @default("pendiente") @db.VarChar(20)
+  notas         String?   @db.Text
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  cliente        Cliente        @relation(fields: [clienteId], references: [id])
+  items          ItemOrden[]
+  notificaciones Notificacion[]
+
+  @@map("ordenes")
+}
+
+model ItemOrden {
+  id             Int      @id @default(autoincrement())
+  ordenId        Int      @map("orden_id")
+  tipoItem       String   @default("tenis") @db.VarChar(20) @map("tipo_item")
+  servicio       String?  @db.VarChar(100)
+  // Campos exclusivos de tenis
+  tipoZapato     String?  @db.VarChar(100) @map("tipo_zapato")
+  talla          String?  @db.VarChar(10)
+  marca          String?  @db.VarChar(50)
+  // Campos exclusivos de accesorios
+  tipoAccesorio  String?  @db.VarChar(50) @map("tipo_accesorio")
+  tamano         String?  @db.VarChar(50) @map("tamano")
+  // Campos comunes
+  color          String?  @db.VarChar(50)
+  extras         String?  @db.Text
+  precio         Decimal  @default(0) @db.Decimal(10, 2)
+
+  orden Orden @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+
+  @@map("items_orden")
+}
+
+model Notificacion {
+  id        Int       @id @default(autoincrement())
+  ordenId   Int       @map("orden_id")
+  tipo      String    @db.VarChar(20)
+  mensaje   String    @db.Text
+  enviadoAt DateTime? @map("enviado_at")
+  estado    String    @db.VarChar(20)
+
+  orden Orden @relation(fields: [ordenId], references: [id], onDelete: Cascade)
+
+  @@map("notificaciones")
+}

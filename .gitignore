@@ -1,0 +1,9 @@
+node_modules/
+client/node_modules/
+server/node_modules/
+client/dist/
+.env
+*.log
+.DS_Store
+server/prisma/dev.db
+CREDENTIALS.md
