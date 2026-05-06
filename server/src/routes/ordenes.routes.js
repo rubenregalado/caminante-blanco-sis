@@ -1,6 +1,7 @@
 const express = require('express')
 const { verificarToken } = require('../middleware/auth.middleware')
 const {
+  previsualizarNumero,
   listarOrdenes,
   obtenerOrden,
   buscarPorNumero,
@@ -15,6 +16,7 @@ const router = express.Router()
 router.use(verificarToken)
 
 router.get('/', listarOrdenes)
+router.get('/siguiente-numero', previsualizarNumero)
 router.get('/numero/:numero', buscarPorNumero)
 router.get('/:id', obtenerOrden)
 router.post('/', crearOrden)

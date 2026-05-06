@@ -19,6 +19,15 @@ const mapearItem = (item) => ({
   tamano:        item.tipoItem === 'accesorio' ? (item.tamano        || null) : null,
 })
 
+const previsualizarNumero = async (req, res, next) => {
+  try {
+    const numero = await generarNumeroOrden()
+    res.json({ numeroOrden: numero })
+  } catch (error) {
+    next(error)
+  }
+}
+
 const listarOrdenes = async (req, res, next) => {
   try {
     const { estado, buscar } = req.query
@@ -67,7 +76,7 @@ const buscarPorNumero = async (req, res, next) => {
 
 const crearOrden = async (req, res, next) => {
   try {
-    const { clienteId, fechaIngreso, fechaEntrega, formaPago, anticipo, notas, items } = req.body
+    const { clienteId, fechaIngreso, fechaEntrega, formaPago, anticipo, notas, urlFotos, items } = req.body
 
     if (!clienteId || !fechaIngreso) {
       return res.status(400).json({ mensaje: 'clienteId y fechaIngreso son requeridos' })
@@ -90,6 +99,7 @@ const crearOrden = async (req, res, next) => {
         anticipo:     parseFloat(anticipo || 0),
         total,
         notas,
+        urlFotos:     urlFotos || null,
         estado: 'pendiente',
         items: { create: itemsData.map(mapearItem) }
       },
@@ -118,7 +128,7 @@ const crearOrden = async (req, res, next) => {
 
 const actualizarOrden = async (req, res, next) => {
   try {
-    const { fechaEntrega, formaPago, anticipo, notas, items } = req.body
+    const { fechaEntrega, formaPago, anticipo, notas, urlFotos, items } = req.body
     const ordenId = parseInt(req.params.id)
     const updateData = {}
 
@@ -126,6 +136,7 @@ const actualizarOrden = async (req, res, next) => {
     if (formaPago     !== undefined) updateData.formaPago    = formaPago
     if (anticipo      !== undefined) updateData.anticipo     = parseFloat(anticipo)
     if (notas         !== undefined) updateData.notas        = notas
+    if (urlFotos      !== undefined) updateData.urlFotos     = urlFotos || null
 
     if (items) {
       if (items.length > 12) {
@@ -149,16 +160,23 @@ const actualizarOrden = async (req, res, next) => {
 
 const cambiarEstado = async (req, res, next) => {
   try {
-    const { estado } = req.body
+    const { estado, urlFotosListo } = req.body
     const ordenId    = parseInt(req.params.id)
 
     if (!ESTADOS_VALIDOS.includes(estado)) {
       return res.status(400).json({ mensaje: `Estado inválido. Opciones: ${ESTADOS_VALIDOS.join(', ')}` })
     }
 
+    if (estado === 'listo' && !urlFotosListo) {
+      return res.status(400).json({ mensaje: 'Se requiere la URL de fotografías para marcar la orden como lista' })
+    }
+
+    const dataUpdate = { estado }
+    if (estado === 'listo') dataUpdate.urlFotosListo = urlFotosListo
+
     const orden = await prisma.orden.update({
       where: { id: ordenId },
-      data: { estado },
+      data: dataUpdate,
       include: { cliente: true, items: true }
     })
 
@@ -191,4 +209,4 @@ const eliminarOrden = async (req, res, next) => {
   }
 }
 
-module.exports = { listarOrdenes, obtenerOrden, buscarPorNumero, crearOrden, actualizarOrden, cambiarEstado, eliminarOrden }
+module.exports = { previsualizarNumero, listarOrdenes, obtenerOrden, buscarPorNumero, crearOrden, actualizarOrden, cambiarEstado, eliminarOrden }

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { crearOrden } from '../api/ordenes'
+import { crearOrden, siguienteNumeroOrden } from '../api/ordenes'
 import { listarClientes, crearCliente } from '../api/clientes'
 import Layout from '../components/Layout'
 import { formatearMoneda } from '../utils/formatters'
@@ -40,11 +40,32 @@ const OPCIONES_RESTAURACION = [
   { id: 'pintura_gamuza_parcial', label: 'Pintura parcial de Gamuza o tela',   precio: 50  },
 ]
 const PEGADO_SUELA_PRECIO = 30
+const EXTRAS_RESTAURACION = [
+  { id: 'desmanchado',          label: 'Desmanchado',             precio: 20 },
+  { id: 'blanqueamientoSuelas', label: 'Blanqueamiento de suelas', precio: 30 },
+  { id: 'impermeabilizacion',   label: 'Impermeabilización',      precio: 30 },
+  { id: 'secadoExtra',          label: 'Secado extra',            precio: 10 },
+]
+
+const PRODUCTOS_EXTRA = [
+  { id: 'extraCintas',      label: 'Cintas',      precio: 10 },
+  { id: 'extraPlantillas',  label: 'Plantillas',  precio: 10 },
+  { id: 'extraDesodorante', label: 'Desodorante', precio: 40 },
+]
+
+const calcularPrecioRestauracion = (item) => {
+  const base = OPCIONES_RESTAURACION.find(o => o.id === item.restauracionBase)
+  let total = base ? base.precio : 0
+  if (item.pegadoSuela) total += PEGADO_SUELA_PRECIO
+  EXTRAS_RESTAURACION.forEach(e => { if (item[e.id]) total += e.precio })
+  PRODUCTOS_EXTRA.forEach(p => { if (item[p.id]) total += p.precio })
+  return total
+}
 
 const TIPOS_TENIS     = ['Tennis', 'Botas', 'Casual de cuero', 'Crocs', 'Zapatillas', 'Otros']
 const TIPOS_ACCESORIO = ['Gorra', 'Mochila', 'Cartera', 'Bolso', 'Cinturón', 'Otro']
 const SERVICIOS_ACCESORIO = ['Limpieza básica', 'Limpieza profunda', 'Impermeabilización', 'Desinfección', 'Restauración', 'Otro']
-const TAMANOS         = ['Único', 'XS', 'S', 'M', 'L', 'XL', 'XXL']
+const TAMANOS         = ['Pequeño', 'Mediano', 'Grande']
 
 const itemVacio = (tipo = 'tenis') => ({
   tipoItem: tipo,
@@ -53,6 +74,13 @@ const itemVacio = (tipo = 'tenis') => ({
   tipoAccesorio: '', tamano: '',
   restauracionBase: '',
   pegadoSuela: false,
+  desmanchado: false,
+  blanqueamientoSuelas: false,
+  impermeabilizacion: false,
+  secadoExtra: false,
+  extraCintas: false,
+  extraPlantillas: false,
+  extraDesodorante: false,
 })
 
 function FormItem({ item, idx, onChange, onQuitar, puedeQuitar }) {
@@ -97,7 +125,7 @@ function FormItem({ item, idx, onChange, onQuitar, puedeQuitar }) {
               className="px-3 py-1.5 transition-colors flex items-center gap-1.5"
               style={esTenis ? { backgroundColor: '#3B30D0', color: '#fff' } : { backgroundColor: '#fff', color: '#6B7280' }}
             >
-              <IconShoe /> Tenis
+              <IconShoe /> Zapatos
             </button>
             <button
               type="button"
@@ -147,7 +175,7 @@ function FormItem({ item, idx, onChange, onQuitar, puedeQuitar }) {
                     <span className="text-xs font-semibold" style={{ color: '#3B30D0' }}>Q{op.precio}</span>
                   </label>
                 ))}
-                <div className="border-t border-gray-200 pt-2">
+                <div className="border-t border-gray-200 pt-2 space-y-2">
                   <label className="flex items-center gap-3 cursor-pointer">
                     <input
                       type="checkbox"
@@ -158,13 +186,43 @@ function FormItem({ item, idx, onChange, onQuitar, puedeQuitar }) {
                     <span className="text-sm text-gray-700 flex-1">Pegado de suela</span>
                     <span className="text-xs font-semibold" style={{ color: '#3B30D0' }}>Q{PEGADO_SUELA_PRECIO}</span>
                   </label>
+                  {EXTRAS_RESTAURACION.map(e => (
+                    <label key={e.id} className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={item[e.id]}
+                        onChange={ev => onChange(idx, e.id, ev.target.checked)}
+                        className="accent-indigo-700"
+                      />
+                      <span className="text-sm text-gray-700 flex-1">{e.label}</span>
+                      <span className="text-xs font-semibold" style={{ color: '#3B30D0' }}>Q{e.precio}</span>
+                    </label>
+                  ))}
                 </div>
               </div>
             </div>
           )}
 
           <div className="col-span-2 md:col-span-3">
-            {campo('extras', 'Extras / Observaciones', { placeholder: 'Manchas especiales, decoloración...' })}
+            <label className="text-xs text-gray-500 mb-2 block">Extras</label>
+            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 flex flex-wrap gap-x-6 gap-y-2">
+              {PRODUCTOS_EXTRA.map(p => (
+                <label key={p.id} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={item[p.id]}
+                    onChange={e => onChange(idx, p.id, e.target.checked)}
+                    className="accent-indigo-700"
+                  />
+                  <span className="text-sm text-gray-700">{p.label}</span>
+                  <span className="text-xs font-semibold" style={{ color: '#3B30D0' }}>Q{p.precio}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="col-span-2 md:col-span-3">
+            {campo('extras', 'Observaciones', { placeholder: 'Manchas especiales, decoloración...' })}
           </div>
         </>}
 
@@ -192,10 +250,15 @@ export default function OrdenNueva() {
   const [clienteId, setClienteId]     = useState('')
   const [mostrarNuevoCliente, setMostrarNuevoCliente] = useState(false)
   const [nuevoCliente, setNuevoCliente] = useState({ nombre: '', telefono: '', nit: '', correo: '', genero: '', fechaNacimiento: '' })
+  const [numeroPreview, setNumeroPreview] = useState('')
 
   const hoy = new Date().toISOString().split('T')[0]
-  const [form, setForm] = useState({ fechaIngreso: hoy, fechaEntrega: '', formaPago: 'efectivo', anticipo: '', notas: '' })
+  const [form, setForm] = useState({ fechaIngreso: hoy, fechaEntrega: '', formaPago: 'efectivo', anticipo: '', urlFotos: '', notas: '' })
   const [items, setItems] = useState([itemVacio('tenis')])
+
+  useEffect(() => {
+    siguienteNumeroOrden().then(({ data }) => setNumeroPreview(data.numeroOrden)).catch(() => {})
+  }, [])
 
   useEffect(() => {
     listarClientes(buscarCliente).then(({ data }) => setClientes(data))
@@ -219,15 +282,32 @@ export default function OrdenNueva() {
         precio: precio !== undefined ? String(precio) : '',
         restauracionBase: '',
         pegadoSuela: false,
+        desmanchado: false,
+        blanqueamientoSuelas: false,
+        impermeabilizacion: false,
+        secadoExtra: false,
+        extraCintas: false,
+        extraPlantillas: false,
+        extraDesodorante: false,
       }
     } else if (campo === 'restauracionBase') {
-      const base = OPCIONES_RESTAURACION.find(o => o.id === valor)
-      const total = (base ? base.precio : 0) + (nuevos[idx].pegadoSuela ? PEGADO_SUELA_PRECIO : 0)
-      nuevos[idx] = { ...nuevos[idx], restauracionBase: valor, precio: String(total) }
-    } else if (campo === 'pegadoSuela') {
-      const base = OPCIONES_RESTAURACION.find(o => o.id === nuevos[idx].restauracionBase)
-      const total = (base ? base.precio : 0) + (valor ? PEGADO_SUELA_PRECIO : 0)
-      nuevos[idx] = { ...nuevos[idx], pegadoSuela: valor, precio: total > 0 ? String(total) : '' }
+      const updated = { ...nuevos[idx], restauracionBase: valor }
+      nuevos[idx] = { ...updated, precio: String(calcularPrecioRestauracion(updated)) }
+    } else if (campo === 'pegadoSuela' || EXTRAS_RESTAURACION.some(e => e.id === campo)) {
+      const updated = { ...nuevos[idx], [campo]: valor }
+      const total = calcularPrecioRestauracion(updated)
+      nuevos[idx] = { ...updated, precio: total > 0 ? String(total) : '' }
+    } else if (PRODUCTOS_EXTRA.some(p => p.id === campo)) {
+      const updated = { ...nuevos[idx], [campo]: valor }
+      if (updated.servicio === 'Restauración') {
+        const total = calcularPrecioRestauracion(updated)
+        nuevos[idx] = { ...updated, precio: total > 0 ? String(total) : '' }
+      } else {
+        const extra = PRODUCTOS_EXTRA.find(p => p.id === campo)
+        const base = parseFloat(nuevos[idx].precio || 0)
+        const newTotal = valor ? base + extra.precio : base - extra.precio
+        nuevos[idx] = { ...updated, precio: newTotal > 0 ? String(newTotal) : '' }
+      }
     } else {
       nuevos[idx] = { ...nuevos[idx], [campo]: valor }
     }
@@ -256,11 +336,15 @@ export default function OrdenNueva() {
     if (items.length === 0) { setError('Agrega al menos un artículo'); return }
 
     const itemsParaEnviar = items.map(item => {
+      const productosTexto = PRODUCTOS_EXTRA.filter(p => item[p.id]).map(p => p.label)
+
       if (item.servicio === 'Restauración') {
         const base = OPCIONES_RESTAURACION.find(o => o.id === item.restauracionBase)
         const partes = []
         if (base) partes.push(base.label)
         if (item.pegadoSuela) partes.push('Pegado de suela')
+        EXTRAS_RESTAURACION.forEach(e => { if (item[e.id]) partes.push(e.label) })
+        partes.push(...productosTexto)
         const descripcion = partes.join(' + ')
         return {
           ...item,
@@ -269,6 +353,15 @@ export default function OrdenNueva() {
             : item.extras,
         }
       }
+
+      if (productosTexto.length > 0) {
+        const descripcion = productosTexto.join(' + ')
+        return {
+          ...item,
+          extras: item.extras ? `${descripcion} · ${item.extras}` : descripcion,
+        }
+      }
+
       return item
     })
 
@@ -295,7 +388,15 @@ export default function OrdenNueva() {
     <Layout>
       <div className="flex items-center gap-3 mb-6">
         <button onClick={() => navigate(-1)} className="text-gray-400 hover:text-gray-600 text-lg">←</button>
-        <h2 className="text-2xl font-bold text-gray-900">Nueva Orden</h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-2xl font-bold text-gray-900">Nueva Orden</h2>
+          {numeroPreview && (
+            <span className="px-3 py-1 rounded-full text-sm font-bold tracking-wide"
+              style={{ backgroundColor: '#EEEEFF', color: '#3B30D0' }}>
+              #{numeroPreview}
+            </span>
+          )}
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6 max-w-3xl">
@@ -407,6 +508,18 @@ export default function OrdenNueva() {
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="0.00" />
             </div>
             <div className="col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                📷 URL de fotografías de recepción
+              </label>
+              <input
+                type="url"
+                value={form.urlFotos}
+                onChange={e => setForm({ ...form, urlFotos: e.target.value })}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                placeholder="https://photos.google.com/album/..." />
+              <p className="text-xs text-gray-400 mt-1">Álbum de Google Photos con las fotos del estado al momento de recepción</p>
+            </div>
+            <div className="col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">Notas</label>
               <textarea value={form.notas} onChange={e => setForm({ ...form, notas: e.target.value })}
                 rows={2} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none"
@@ -422,7 +535,7 @@ export default function OrdenNueva() {
               <h3 className="font-semibold text-gray-900">Artículos ({items.length}/12)</h3>
               {(conteoTenis > 0 || conteoAccesorio > 0) && (
                 <p className="text-xs text-gray-400 mt-0.5">
-                  {conteoTenis > 0 && `${conteoTenis} par(es) de tenis`}
+                  {conteoTenis > 0 && `${conteoTenis} par(es) de zapatos`}
                   {conteoTenis > 0 && conteoAccesorio > 0 && ' · '}
                   {conteoAccesorio > 0 && `${conteoAccesorio} accesorio(s)`}
                 </p>
@@ -433,7 +546,7 @@ export default function OrdenNueva() {
                 <button type="button" onClick={() => agregarItem('tenis')}
                   className="text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors"
                   style={{ borderColor: '#3B30D0', color: '#3B30D0' }}>
-                  + Tenis
+                  + Zapatos
                 </button>
                 <button type="button" onClick={() => agregarItem('accesorio')}
                   className="text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors"

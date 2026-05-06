@@ -41,6 +41,8 @@ export default function OrdenDetalle() {
   const [mensaje, setMensaje] = useState('')
   const [modalEliminar, setModalEliminar] = useState(false)
   const [eliminando, setEliminando] = useState(false)
+  const [modalListo, setModalListo] = useState(false)
+  const [urlFotosListo, setUrlFotosListo] = useState('')
 
   const cargar = () => {
     setCargando(true)
@@ -55,10 +57,29 @@ export default function OrdenDetalle() {
   const handleCambiarEstado = async () => {
     const accion = ACCIONES[orden.estado]
     if (!accion) return
+    if (accion.siguiente === 'listo') {
+      setUrlFotosListo('')
+      setModalListo(true)
+      return
+    }
     setCambiandoEstado(true)
     try {
       await cambiarEstado(orden.id, accion.siguiente)
-      setMensaje(accion.siguiente === 'listo' && orden.cliente?.correo
+      setMensaje('✅ Estado actualizado.')
+      cargar()
+    } catch {
+      setMensaje('❌ Error al cambiar el estado')
+    } finally {
+      setCambiandoEstado(false)
+    }
+  }
+
+  const handleConfirmarListo = async () => {
+    setCambiandoEstado(true)
+    try {
+      await cambiarEstado(orden.id, 'listo', { urlFotosListo })
+      setModalListo(false)
+      setMensaje(orden.cliente?.correo
         ? '✅ Estado actualizado. Correo enviado al cliente.'
         : '✅ Estado actualizado.')
       cargar()
@@ -283,6 +304,24 @@ export default function OrdenDetalle() {
                 <span>{formatearFecha(orden.fechaEntrega)}</span>
               </div>
             </div>
+            {orden.urlFotos && (
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                <p className="text-xs text-gray-500 mb-1">📷 Fotos de recepción</p>
+                <a href={orden.urlFotos} target="_blank" rel="noopener noreferrer"
+                  className="text-sm text-blue-600 hover:text-blue-800 break-all underline">
+                  Ver álbum →
+                </a>
+              </div>
+            )}
+            {orden.urlFotosListo && (
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                <p className="text-xs text-gray-500 mb-1">✅ Fotos de entrega</p>
+                <a href={orden.urlFotosListo} target="_blank" rel="noopener noreferrer"
+                  className="text-sm text-green-600 hover:text-green-800 break-all underline">
+                  Ver álbum →
+                </a>
+              </div>
+            )}
             {orden.notas && (
               <div className="mt-3 pt-3 border-t border-gray-100">
                 <p className="text-xs text-gray-500 mb-1">Notas</p>
@@ -311,6 +350,45 @@ export default function OrdenDetalle() {
           </div>
         </div>
       </div>
+
+      {modalListo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-1">Marcar como Lista</h3>
+            <p className="text-sm text-gray-500 mb-5">
+              Ingresa el enlace del álbum con las fotos de los artículos ya limpios y listos para entregar. Este álbum es la evidencia del trabajo terminado.
+            </p>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              📷 URL de fotografías de entrega *
+            </label>
+            <input
+              type="url"
+              value={urlFotosListo}
+              onChange={e => setUrlFotosListo(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm mb-1 focus:outline-none focus:border-indigo-400"
+              placeholder="https://photos.google.com/album/..."
+              autoFocus
+            />
+            <p className="text-xs text-gray-400 mb-5">El botón se habilitará al ingresar una URL válida</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setModalListo(false)}
+                className="flex-1 border border-gray-300 text-gray-700 rounded-lg py-2 text-sm font-medium hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleConfirmarListo}
+                disabled={!urlFotosListo.trim() || cambiandoEstado}
+                className="flex-1 text-white rounded-lg py-2 text-sm font-bold disabled:opacity-40 transition-colors"
+                style={{ backgroundColor: '#16A34A' }}
+              >
+                {cambiandoEstado ? 'Guardando...' : '✅ Confirmar — Listo'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {modalEliminar && (
         <ModalConfirmar
