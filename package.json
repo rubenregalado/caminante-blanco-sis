@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Sistema de gestión de órdenes - Caminante Blanco",
   "scripts": {
-    "build": "cd server && npm install && cd ../client && npm install && npm run build",
+    "build": "cd server && npm install && cd ../client && npm install --include=dev && npm run build",
     "start": "node server/src/index.js",
     "dev:server": "cd server && npm run dev",
     "dev:client": "cd client && npm run dev"
