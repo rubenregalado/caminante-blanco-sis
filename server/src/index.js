@@ -18,8 +18,16 @@ console.log('================================')
 
 try {
   console.log('Ejecutando migraciones...')
-  const prismaBin = path.join(__dirname, '../../node_modules/.bin/prisma')
-  const output = execSync(`${prismaBin} migrate deploy --schema prisma/schema.prisma`, {
+  const fs = require('fs')
+  // Buscar prisma/build/index.js en server/node_modules o en la raíz
+  const candidates = [
+    path.join(__dirname, '../node_modules/prisma/build/index.js'),
+    path.join(__dirname, '../../node_modules/prisma/build/index.js'),
+  ]
+  const prismaJs = candidates.find(p => fs.existsSync(p))
+  if (!prismaJs) throw new Error('No se encontró prisma/build/index.js en node_modules')
+  console.log('Usando prisma en:', prismaJs)
+  const output = execSync(`node "${prismaJs}" migrate deploy --schema prisma/schema.prisma`, {
     cwd: path.join(__dirname, '..'),
     stdio: 'pipe',
     env: process.env
