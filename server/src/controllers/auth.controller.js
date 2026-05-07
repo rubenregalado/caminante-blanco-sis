@@ -16,7 +16,9 @@ const login = async (req, res, next) => {
     // DIAGNÓSTICO TEMPORAL
     console.log('[login] intento usuario:', usuario)
     console.log('[login] ADMIN_USER env:', process.env.ADMIN_USER || '(no definido)')
-    console.log('[login] ADMIN_PASSWORD definida:', !!process.env.ADMIN_PASSWORD)
+    console.log('[login] ADMIN_PASSWORD longitud:', process.env.ADMIN_PASSWORD ? process.env.ADMIN_PASSWORD.length : 0)
+    console.log('[login] password ingresada longitud:', password.length)
+    console.log('[login] coinciden:', process.env.ADMIN_PASSWORD === password)
 
     const user = USUARIOS.find(
       u => u.usuario && u.password && u.usuario === usuario && u.password === password
