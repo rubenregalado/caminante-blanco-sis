@@ -13,11 +13,17 @@ const login = async (req, res, next) => {
       { usuario: process.env.COLAB_USER, password: process.env.COLAB_PASSWORD, rol: 'colaborador' },
     ]
 
+    // DIAGNÓSTICO TEMPORAL
+    console.log('[login] intento usuario:', usuario)
+    console.log('[login] ADMIN_USER env:', process.env.ADMIN_USER || '(no definido)')
+    console.log('[login] ADMIN_PASSWORD definida:', !!process.env.ADMIN_PASSWORD)
+
     const user = USUARIOS.find(
       u => u.usuario && u.password && u.usuario === usuario && u.password === password
     )
 
     if (!user) {
+      console.log('[login] 401 — no se encontró usuario válido')
       return res.status(401).json({ mensaje: 'Credenciales incorrectas' })
     }
 
