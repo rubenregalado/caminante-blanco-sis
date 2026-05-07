@@ -27,7 +27,7 @@ try {
   const prismaJs = candidates.find(p => fs.existsSync(p))
   if (!prismaJs) throw new Error('No se encontró prisma/build/index.js en node_modules')
   console.log('Usando prisma en:', prismaJs)
-  const output = execSync(`node "${prismaJs}" migrate deploy --schema prisma/schema.prisma`, {
+  const output = execSync(`"${process.execPath}" "${prismaJs}" migrate deploy --schema prisma/schema.prisma`, {
     cwd: path.join(__dirname, '..'),
     stdio: 'pipe',
     env: process.env

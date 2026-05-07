@@ -4,7 +4,7 @@
   "description": "Sistema de gestión de órdenes - Caminante Blanco",
   "scripts": {
     "build": "cd server && npm install && cd ../client && npm install --include=dev && npm run build",
-    "start": "prisma migrate deploy --schema server/prisma/schema.prisma && node server/src/index.js",
+    "start": "node server/src/index.js",
     "postinstall": "prisma generate --schema server/prisma/schema.prisma",
     "dev:server": "cd server && npm run dev",
     "dev:client": "cd client && npm run dev"
