@@ -148,14 +148,14 @@ export default function Dashboard() {
     <Layout>
       {/* ── Header ── */}
       <div
-        className="rounded-2xl p-6 mb-6 flex items-center justify-between shadow-lg"
+        className="rounded-2xl p-4 sm:p-6 mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-lg"
         style={{ background: 'linear-gradient(135deg, #3B30D0 0%, #2D24A8 100%)' }}
       >
-        <div className="flex items-center gap-4">
-          <img src="/logo-white.png" alt="Caminante Blanco" className="h-12" />
+        <div className="flex items-center gap-3">
+          <img src="/logo-white.png" alt="Caminante Blanco" className="h-10 sm:h-12" />
           <div>
-            <h2 className="text-xl font-bold text-white">Dashboard</h2>
-            <p className="text-sm mt-0.5" style={{ color: 'rgba(255,255,255,0.6)' }}>
+            <h2 className="text-lg sm:text-xl font-bold text-white">Dashboard</h2>
+            <p className="text-xs sm:text-sm mt-0.5" style={{ color: 'rgba(255,255,255,0.6)' }}>
               {new Date().toLocaleDateString('es-GT', {
                 weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
               })}
@@ -164,7 +164,7 @@ export default function Dashboard() {
         </div>
         <button
           onClick={() => navigate('/ordenes/nueva')}
-          className="px-5 py-2.5 rounded-xl text-sm font-bold transition-all shadow"
+          className="px-5 py-2.5 rounded-xl text-sm font-bold transition-all shadow self-start sm:self-auto"
           style={{ backgroundColor: '#3DDBA0', color: '#2D24A8' }}
           onMouseEnter={e => { e.target.style.backgroundColor = '#28B882'; e.target.style.color = '#ffffff' }}
           onMouseLeave={e => { e.target.style.backgroundColor = '#3DDBA0'; e.target.style.color = '#2D24A8' }}
@@ -224,9 +224,9 @@ export default function Dashboard() {
 
           {/* Gráfica de ingresos */}
           <div className="bg-white rounded-2xl border border-gray-200 p-5 mb-6">
-            <div className="flex items-center justify-between mb-5">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-5">
               <h3 className="font-bold text-gray-900">Ingresos</h3>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 {periodo === 'anio' && (
                   <select
                     value={anio}

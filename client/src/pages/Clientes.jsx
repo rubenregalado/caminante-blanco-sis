@@ -48,19 +48,20 @@ export default function Clientes() {
   return (
     <Layout>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">Clientes</h2>
+        <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Clientes</h2>
         <button
           onClick={() => setMostrarForm(!mostrarForm)}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
+          className="text-white px-3 sm:px-4 py-2 rounded-lg text-sm font-medium"
+          style={{ backgroundColor: '#3B30D0' }}
         >
           + Nuevo Cliente
         </button>
       </div>
 
       {mostrarForm && (
-        <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6">
+        <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 mb-6">
           <h3 className="font-semibold text-gray-900 mb-4">Nuevo cliente</h3>
-          <form onSubmit={handleCrear} className="grid grid-cols-2 gap-4">
+          <form onSubmit={handleCrear} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {[
               ['nombre', 'Nombre *', 'text'],
               ['telefono', 'Teléfono', 'text'],
@@ -99,7 +100,7 @@ export default function Clientes() {
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
               />
             </div>
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
               <input
                 type="text"
@@ -108,8 +109,8 @@ export default function Clientes() {
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
               />
             </div>
-            {error && <p className="col-span-2 text-red-600 text-sm">{error}</p>}
-            <div className="col-span-2 flex gap-3">
+            {error && <p className="sm:col-span-2 text-red-600 text-sm">{error}</p>}
+            <div className="sm:col-span-2 flex gap-3">
               <button
                 type="button"
                 onClick={() => { setMostrarForm(false); setError('') }}
@@ -120,7 +121,8 @@ export default function Clientes() {
               <button
                 type="submit"
                 disabled={guardando}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-60"
+                className="px-4 py-2 text-white rounded-lg text-sm font-medium disabled:opacity-60"
+                style={{ backgroundColor: '#3B30D0' }}
               >
                 {guardando ? 'Guardando...' : 'Guardar'}
               </button>
@@ -135,9 +137,9 @@ export default function Clientes() {
           value={buscar}
           onChange={(e) => setBuscar(e.target.value)}
           placeholder="Buscar por nombre, teléfono o NIT..."
-          className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none"
         />
-        <button type="submit" className="bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-900">
+        <button type="submit" className="bg-gray-800 text-white px-3 sm:px-4 py-2 rounded-lg text-sm font-medium">
           Buscar
         </button>
         {buscar && (
@@ -150,34 +152,55 @@ export default function Clientes() {
       ) : clientes.length === 0 ? (
         <div className="text-center text-gray-400 py-12">Sin clientes registrados</div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">Nombre</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">Teléfono</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">Correo</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">NIT</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-600">Órdenes</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {clientes.map(cliente => (
-                <tr
-                  key={cliente.id}
-                  onClick={() => navigate(`/clientes/${cliente.id}`)}
-                  className="hover:bg-blue-50 cursor-pointer transition-colors"
-                >
-                  <td className="px-4 py-3 font-medium text-gray-900">{cliente.nombre}</td>
-                  <td className="px-4 py-3 text-gray-600">{cliente.telefono || '—'}</td>
-                  <td className="px-4 py-3 text-gray-600">{cliente.correo || '—'}</td>
-                  <td className="px-4 py-3 text-gray-600">{cliente.nit || '—'}</td>
-                  <td className="px-4 py-3 text-gray-600">{cliente._count?.ordenes || 0}</td>
+        <>
+          {/* Tabla — visible en sm+ */}
+          <div className="hidden sm:block bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-4 py-3 text-left font-medium text-gray-600">Nombre</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-600">Teléfono</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-600">Correo</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-600">NIT</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-600">Órdenes</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {clientes.map(cliente => (
+                  <tr
+                    key={cliente.id}
+                    onClick={() => navigate(`/clientes/${cliente.id}`)}
+                    className="hover:bg-blue-50 cursor-pointer transition-colors"
+                  >
+                    <td className="px-4 py-3 font-medium text-gray-900">{cliente.nombre}</td>
+                    <td className="px-4 py-3 text-gray-600">{cliente.telefono || '—'}</td>
+                    <td className="px-4 py-3 text-gray-600">{cliente.correo || '—'}</td>
+                    <td className="px-4 py-3 text-gray-600">{cliente.nit || '—'}</td>
+                    <td className="px-4 py-3 text-gray-600">{cliente._count?.ordenes || 0}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Tarjetas — visible solo en móvil */}
+          <div className="sm:hidden space-y-2">
+            {clientes.map(cliente => (
+              <div
+                key={cliente.id}
+                onClick={() => navigate(`/clientes/${cliente.id}`)}
+                className="bg-white rounded-xl border border-gray-200 p-4 cursor-pointer active:bg-gray-50"
+              >
+                <div className="flex items-center justify-between">
+                  <p className="font-semibold text-gray-900">{cliente.nombre}</p>
+                  <span className="text-xs text-gray-400">{cliente._count?.ordenes || 0} órdenes</span>
+                </div>
+                {cliente.telefono && <p className="text-sm text-gray-500 mt-1">📞 {cliente.telefono}</p>}
+                {cliente.correo && <p className="text-sm text-gray-500">{cliente.correo}</p>}
+              </div>
+            ))}
+          </div>
+        </>
       )}
     </Layout>
   )

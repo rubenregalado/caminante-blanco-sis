@@ -437,7 +437,7 @@ export default function OrdenNueva() {
           {mostrarNuevoCliente && (
             <div className="mt-4 p-4 rounded-lg space-y-3" style={{ backgroundColor: '#F0EEFF' }}>
               <p className="text-sm font-semibold" style={{ color: '#3B30D0' }}>Nuevo cliente</p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {[['nombre','Nombre *'],['telefono','Teléfono'],['nit','NIT'],['correo','Correo']].map(([c, l]) => (
                   <div key={c}>
                     <label className="text-xs text-gray-600">{l}</label>
@@ -479,7 +479,7 @@ export default function OrdenNueva() {
         {/* Datos de la orden */}
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <h3 className="font-semibold text-gray-900 mb-4">Datos de la orden</h3>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Fecha de ingreso *</label>
               <input type="date" value={form.fechaIngreso}
@@ -507,7 +507,7 @@ export default function OrdenNueva() {
                 onChange={e => setForm({ ...form, anticipo: e.target.value })}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="0.00" />
             </div>
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 📷 URL de fotografías de recepción
               </label>
@@ -519,7 +519,7 @@ export default function OrdenNueva() {
                 placeholder="https://photos.google.com/album/..." />
               <p className="text-xs text-gray-400 mt-1">Álbum de Google Photos con las fotos del estado al momento de recepción</p>
             </div>
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">Notas</label>
               <textarea value={form.notas} onChange={e => setForm({ ...form, notas: e.target.value })}
                 rows={2} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none"

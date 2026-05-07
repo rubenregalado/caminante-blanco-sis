@@ -47,72 +47,97 @@ export default function Sidebar() {
   const { logout, usuario, rol } = useAuth()
 
   return (
-    <aside
-      className="w-60 shrink-0 flex flex-col min-h-screen"
-      style={{ backgroundColor: '#3B30D0' }}
-    >
-      {/* Logo */}
-      <div className="px-5 pt-6 pb-5" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-        <img src="/logo-white.png" alt="Caminante Blanco" className="w-36" />
-      </div>
+    <>
+      {/* Sidebar — solo visible en desktop */}
+      <aside
+        className="hidden lg:flex w-60 shrink-0 flex-col min-h-screen"
+        style={{ backgroundColor: '#3B30D0' }}
+      >
+        {/* Logo */}
+        <div className="px-5 pt-6 pb-5" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+          <img src="/logo-white.png" alt="Caminante Blanco" className="w-36" />
+        </div>
 
-      {/* Navegación */}
-      <nav className="flex-1 p-3 space-y-1 mt-2">
+        {/* Navegación */}
+        <nav className="flex-1 p-3 space-y-1 mt-2">
+          {enlaces.map(({ to, Icono, etiqueta }) => (
+            <NavLink
+              key={to}
+              to={to}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all"
+              style={({ isActive }) =>
+                isActive
+                  ? { backgroundColor: '#ffffff', color: '#3B30D0' }
+                  : { color: 'rgba(255,255,255,0.7)' }
+              }
+              onMouseEnter={e => {
+                if (!e.currentTarget.style.backgroundColor.includes('255, 255, 255')) {
+                  e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'
+                  e.currentTarget.style.color = '#ffffff'
+                }
+              }}
+              onMouseLeave={e => {
+                if (!e.currentTarget.style.backgroundColor.includes('255, 255, 255')) {
+                  e.currentTarget.style.backgroundColor = 'transparent'
+                  e.currentTarget.style.color = 'rgba(255,255,255,0.7)'
+                }
+              }}
+            >
+              <Icono />
+              {etiqueta}
+            </NavLink>
+          ))}
+        </nav>
+
+        {/* Footer */}
+        <div className="p-4" style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+          <div className="flex items-center gap-2 mb-3">
+            <div
+              className="w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs"
+              style={{ backgroundColor: '#3DDBA0', color: '#3B30D0' }}
+            >
+              {usuario?.[0]?.toUpperCase()}
+            </div>
+            <div>
+              <p className="text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>{usuario}</p>
+              <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                {rol === 'admin' ? 'Administrador' : 'Colaborador'}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={logout}
+            className="w-full text-left text-xs transition-colors"
+            style={{ color: 'rgba(255,255,255,0.4)' }}
+            onMouseEnter={e => e.target.style.color = 'rgba(255,255,255,0.8)'}
+            onMouseLeave={e => e.target.style.color = 'rgba(255,255,255,0.4)'}
+          >
+            Cerrar sesión →
+          </button>
+        </div>
+      </aside>
+
+      {/* Barra de navegación inferior — solo en móvil */}
+      <nav
+        className="fixed bottom-0 left-0 right-0 lg:hidden z-50 flex border-t"
+        style={{ backgroundColor: '#3B30D0', borderColor: 'rgba(255,255,255,0.15)' }}
+      >
         {enlaces.map(({ to, Icono, etiqueta }) => (
           <NavLink
             key={to}
             to={to}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all"
+            className="flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-all"
             style={({ isActive }) =>
               isActive
-                ? { backgroundColor: '#ffffff', color: '#3B30D0' }
-                : { color: 'rgba(255,255,255,0.7)' }
+                ? { color: '#3DDBA0' }
+                : { color: 'rgba(255,255,255,0.55)' }
             }
-            onMouseEnter={e => {
-              if (!e.currentTarget.style.backgroundColor.includes('255, 255, 255')) {
-                e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.1)'
-                e.currentTarget.style.color = '#ffffff'
-              }
-            }}
-            onMouseLeave={e => {
-              if (!e.currentTarget.style.backgroundColor.includes('255, 255, 255')) {
-                e.currentTarget.style.backgroundColor = 'transparent'
-                e.currentTarget.style.color = 'rgba(255,255,255,0.7)'
-              }
-            }}
           >
             <Icono />
-            {etiqueta}
+            <span className="text-[10px] font-medium">{etiqueta}</span>
           </NavLink>
         ))}
       </nav>
-
-      {/* Footer */}
-      <div className="p-4" style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-        <div className="flex items-center gap-2 mb-3">
-          <div
-            className="w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs"
-            style={{ backgroundColor: '#3DDBA0', color: '#3B30D0' }}
-          >
-            {usuario?.[0]?.toUpperCase()}
-          </div>
-          <div>
-            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.7)' }}>{usuario}</p>
-            <p className="text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.35)' }}>
-              {rol === 'admin' ? 'Administrador' : 'Colaborador'}
-            </p>
-          </div>
-        </div>
-        <button
-          onClick={logout}
-          className="w-full text-left text-xs transition-colors"
-          style={{ color: 'rgba(255,255,255,0.4)' }}
-          onMouseEnter={e => e.target.style.color = 'rgba(255,255,255,0.8)'}
-          onMouseLeave={e => e.target.style.color = 'rgba(255,255,255,0.4)'}
-        >
-          Cerrar sesión →
-        </button>
-      </div>
-    </aside>
+    </>
   )
 }
