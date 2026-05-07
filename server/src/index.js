@@ -1,4 +1,7 @@
-require('dotenv').config({ path: require('path').join(__dirname, '../../.env') })
+const path = require('path')
+const { execSync } = require('child_process')
+
+require('dotenv').config({ path: path.join(__dirname, '../../.env') })
 
 console.log('=== DIAGNÓSTICO DE ARRANQUE ===')
 console.log('CWD:', process.cwd())
@@ -10,6 +13,19 @@ console.log('JWT_SECRET definida:', !!process.env.JWT_SECRET)
 console.log('ADMIN_USER definida:', !!process.env.ADMIN_USER)
 console.log('COLAB_USER definida:', !!process.env.COLAB_USER)
 console.log('================================')
+
+try {
+  console.log('Ejecutando migraciones...')
+  const prismaBin = path.join(__dirname, '../../node_modules/.bin/prisma')
+  execSync(`${prismaBin} migrate deploy --schema prisma/schema.prisma`, {
+    cwd: path.join(__dirname, '..'),
+    stdio: 'inherit',
+    env: process.env
+  })
+  console.log('Migraciones completadas.')
+} catch (e) {
+  console.error('Error en migraciones:', e.message)
+}
 
 const app = require('./app')
 
