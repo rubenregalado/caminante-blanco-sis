@@ -11,7 +11,9 @@ console.log('PORT:', process.env.PORT || '(no definido — usará 3001)')
 console.log('DATABASE_URL definida:', !!process.env.DATABASE_URL)
 console.log('JWT_SECRET definida:', !!process.env.JWT_SECRET)
 console.log('ADMIN_USER definida:', !!process.env.ADMIN_USER)
+console.log('ADMIN_PASSWORD definida:', !!process.env.ADMIN_PASSWORD)
 console.log('COLAB_USER definida:', !!process.env.COLAB_USER)
+console.log('COLAB_PASSWORD definida:', !!process.env.COLAB_PASSWORD)
 console.log('================================')
 
 try {
