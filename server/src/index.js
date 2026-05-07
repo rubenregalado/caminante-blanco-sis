@@ -17,14 +17,17 @@ console.log('================================')
 try {
   console.log('Ejecutando migraciones...')
   const prismaBin = path.join(__dirname, '../../node_modules/.bin/prisma')
-  execSync(`${prismaBin} migrate deploy --schema prisma/schema.prisma`, {
+  const output = execSync(`${prismaBin} migrate deploy --schema prisma/schema.prisma`, {
     cwd: path.join(__dirname, '..'),
-    stdio: 'inherit',
+    stdio: 'pipe',
     env: process.env
   })
+  console.log(output.toString())
   console.log('Migraciones completadas.')
 } catch (e) {
   console.error('Error en migraciones:', e.message)
+  if (e.stdout && e.stdout.length) console.error('stdout:', e.stdout.toString())
+  if (e.stderr && e.stderr.length) console.error('stderr:', e.stderr.toString())
 }
 
 const app = require('./app')
