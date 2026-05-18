@@ -476,9 +476,9 @@ export default function OrdenNueva() {
           )}
         </div>
 
-        {/* Datos de la orden */}
+        {/* Fechas */}
         <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <h3 className="font-semibold text-gray-900 mb-4">Datos de la orden</h3>
+          <h3 className="font-semibold text-gray-900 mb-4">Fechas de servicio</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Fecha de ingreso *</label>
@@ -492,17 +492,83 @@ export default function OrdenNueva() {
                 onChange={e => setForm({ ...form, fechaEntrega: e.target.value })}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
             </div>
+          </div>
+        </div>
+
+        {/* Artículos */}
+        <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <div className="mb-4">
+            <h3 className="font-semibold text-gray-900">Artículos ({items.length}/12)</h3>
+            {(conteoTenis > 0 || conteoAccesorio > 0) && (
+              <p className="text-xs text-gray-400 mt-0.5">
+                {conteoTenis > 0 && `${conteoTenis} par(es) de zapatos`}
+                {conteoTenis > 0 && conteoAccesorio > 0 && ' · '}
+                {conteoAccesorio > 0 && `${conteoAccesorio} accesorio(s)`}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-4">
+            {items.map((item, idx) => (
+              <div key={idx}>
+                <FormItem
+                  item={item}
+                  idx={idx}
+                  onChange={actualizarItem}
+                  onQuitar={quitarItem}
+                  puedeQuitar={items.length > 1}
+                />
+                {items.length < 12 && idx === items.length - 1 && (
+                  <button
+                    type="button"
+                    onClick={() => agregarItem('tenis')}
+                    className="w-full mt-3 py-3 rounded-lg border-2 border-dashed text-sm font-semibold transition-all hover:border-solid"
+                    style={{ 
+                      borderColor: '#D1D5DB', 
+                      color: '#6B7280',
+                      backgroundColor: 'transparent'
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.borderColor = '#3B30D0'
+                      e.currentTarget.style.color = '#3B30D0'
+                      e.currentTarget.style.backgroundColor = '#F0EEFF'
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.borderColor = '#D1D5DB'
+                      e.currentTarget.style.color = '#6B7280'
+                      e.currentTarget.style.backgroundColor = 'transparent'
+                    }}
+                  >
+                    + Agregar artículo
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div className="flex justify-end mt-4 pt-4 border-t border-gray-100">
+            <div className="text-right">
+              <p className="text-sm text-gray-500">Total estimado</p>
+              <p className="text-2xl font-bold text-gray-900">{formatearMoneda(total)}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Pago y recepción */}
+        <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <h3 className="font-semibold text-gray-900 mb-4">Pago y recepción</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Forma de pago</label>
               <select value={form.formaPago} onChange={e => setForm({ ...form, formaPago: e.target.value })}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white">
                 <option value="efectivo">Efectivo</option>
                 <option value="transferencia">Transferencia</option>
                 <option value="tarjeta">Tarjeta de crédito</option>
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Anticipo (Q)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Anticipo / Pago Total (Q)</label>
               <input type="number" min="0" step="0.01" value={form.anticipo}
                 onChange={e => setForm({ ...form, anticipo: e.target.value })}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" placeholder="0.00" />
@@ -524,56 +590,6 @@ export default function OrdenNueva() {
               <textarea value={form.notas} onChange={e => setForm({ ...form, notas: e.target.value })}
                 rows={2} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none"
                 placeholder="Indicaciones especiales..." />
-            </div>
-          </div>
-        </div>
-
-        {/* Artículos */}
-        <div className="bg-white rounded-xl border border-gray-200 p-5">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="font-semibold text-gray-900">Artículos ({items.length}/12)</h3>
-              {(conteoTenis > 0 || conteoAccesorio > 0) && (
-                <p className="text-xs text-gray-400 mt-0.5">
-                  {conteoTenis > 0 && `${conteoTenis} par(es) de zapatos`}
-                  {conteoTenis > 0 && conteoAccesorio > 0 && ' · '}
-                  {conteoAccesorio > 0 && `${conteoAccesorio} accesorio(s)`}
-                </p>
-              )}
-            </div>
-            {items.length < 12 && (
-              <div className="flex gap-2">
-                <button type="button" onClick={() => agregarItem('tenis')}
-                  className="text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors"
-                  style={{ borderColor: '#3B30D0', color: '#3B30D0' }}>
-                  + Zapatos
-                </button>
-                <button type="button" onClick={() => agregarItem('accesorio')}
-                  className="text-xs font-semibold px-3 py-1.5 rounded-lg border transition-colors"
-                  style={{ borderColor: '#28B882', color: '#28B882' }}>
-                  + Accesorio
-                </button>
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-4">
-            {items.map((item, idx) => (
-              <FormItem
-                key={idx}
-                item={item}
-                idx={idx}
-                onChange={actualizarItem}
-                onQuitar={quitarItem}
-                puedeQuitar={items.length > 1}
-              />
-            ))}
-          </div>
-
-          <div className="flex justify-end mt-4 pt-4 border-t border-gray-100">
-            <div className="text-right">
-              <p className="text-sm text-gray-500">Total estimado</p>
-              <p className="text-2xl font-bold text-gray-900">{formatearMoneda(total)}</p>
             </div>
           </div>
         </div>

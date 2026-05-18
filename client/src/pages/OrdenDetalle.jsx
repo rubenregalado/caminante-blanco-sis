@@ -15,7 +15,7 @@ const IconBag = () => (
   </svg>
 )
 import { useParams, useNavigate } from 'react-router-dom'
-import { obtenerOrden, cambiarEstado, eliminarOrden } from '../api/ordenes'
+import { obtenerOrden, cambiarEstado, eliminarOrden, actualizarOrden } from '../api/ordenes'
 import { enviarCorreo } from '../api/notificaciones'
 import Layout from '../components/Layout'
 import EstadoBadge from '../components/EstadoBadge'
@@ -43,6 +43,10 @@ export default function OrdenDetalle() {
   const [eliminando, setEliminando] = useState(false)
   const [modalListo, setModalListo] = useState(false)
   const [urlFotosListo, setUrlFotosListo] = useState('')
+  const [editandoUrlFotos, setEditandoUrlFotos] = useState(false)
+  const [nuevaUrlFotos, setNuevaUrlFotos] = useState('')
+  const [guardandoUrlFotos, setGuardandoUrlFotos] = useState(false)
+  const [tipoEntrega, setTipoEntrega] = useState('completa') // 'completa' o 'express'
 
   const cargar = () => {
     setCargando(true)
@@ -59,6 +63,7 @@ export default function OrdenDetalle() {
     if (!accion) return
     if (accion.siguiente === 'listo') {
       setUrlFotosListo('')
+      setTipoEntrega('completa')
       setModalListo(true)
       return
     }
@@ -77,7 +82,10 @@ export default function OrdenDetalle() {
   const handleConfirmarListo = async () => {
     setCambiandoEstado(true)
     try {
-      await cambiarEstado(orden.id, 'listo', { urlFotosListo })
+      await cambiarEstado(orden.id, 'listo', { 
+        urlFotosListo,
+        entregaParcial: tipoEntrega === 'express'
+      })
       setModalListo(false)
       setMensaje(orden.cliente?.correo
         ? '✅ Estado actualizado. Correo enviado al cliente.'
@@ -115,6 +123,25 @@ export default function OrdenDetalle() {
     }
   }
 
+  const handleGuardarUrlFotos = async () => {
+    setGuardandoUrlFotos(true)
+    try {
+      await actualizarOrden(orden.id, { urlFotos: nuevaUrlFotos })
+      setMensaje('✅ URL de fotografías guardada')
+      setEditandoUrlFotos(false)
+      cargar()
+    } catch {
+      setMensaje('❌ Error al guardar la URL')
+    } finally {
+      setGuardandoUrlFotos(false)
+    }
+  }
+
+  const iniciarEdicionUrlFotos = () => {
+    setNuevaUrlFotos(orden.urlFotos || '')
+    setEditandoUrlFotos(true)
+  }
+
   if (cargando) {
     return <Layout><div className="flex items-center justify-center h-64 text-gray-400">Cargando...</div></Layout>
   }
@@ -123,6 +150,15 @@ export default function OrdenDetalle() {
 
   const saldo = parseFloat(orden.total) - parseFloat(orden.anticipo)
   const accion = ACCIONES[orden.estado]
+  
+  // Detectar si hay mezcla de express y normales
+  const itemsExpress = orden.items?.filter(item => 
+    item.servicio?.toLowerCase().includes('express')
+  ) || []
+  const itemsNormales = orden.items?.filter(item => 
+    !item.servicio?.toLowerCase().includes('express')
+  ) || []
+  const hayMixExpressNormales = itemsExpress.length > 0 && itemsNormales.length > 0
 
   return (
     <Layout>
@@ -304,15 +340,57 @@ export default function OrdenDetalle() {
                 <span>{formatearFecha(orden.fechaEntrega)}</span>
               </div>
             </div>
-            {orden.urlFotos && (
-              <div className="mt-3 pt-3 border-t border-gray-100">
-                <p className="text-xs text-gray-500 mb-1">📷 Fotos de recepción</p>
+            
+            {/* URL de fotografías de recepción - Editable */}
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-gray-500">Fotos de recepción</p>
+                {!editandoUrlFotos && (
+                  <button
+                    onClick={iniciarEdicionUrlFotos}
+                    className="text-xs text-blue-600 hover:text-blue-800"
+                  >
+                    {orden.urlFotos ? 'Editar' : '+ Agregar'}
+                  </button>
+                )}
+              </div>
+              
+              {editandoUrlFotos ? (
+                <div className="space-y-2">
+                  <input
+                    type="url"
+                    value={nuevaUrlFotos}
+                    onChange={e => setNuevaUrlFotos(e.target.value)}
+                    placeholder="https://photos.google.com/album/..."
+                    className="w-full text-xs rounded border border-gray-300 px-2 py-1.5 focus:outline-none focus:border-blue-400"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setEditandoUrlFotos(false)}
+                      className="flex-1 text-xs border border-gray-300 text-gray-600 rounded py-1.5 hover:bg-gray-50"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={handleGuardarUrlFotos}
+                      disabled={guardandoUrlFotos}
+                      className="flex-1 text-xs text-white rounded py-1.5 disabled:opacity-50"
+                      style={{ backgroundColor: '#3B30D0' }}
+                    >
+                      {guardandoUrlFotos ? 'Guardando...' : 'Guardar'}
+                    </button>
+                  </div>
+                </div>
+              ) : orden.urlFotos ? (
                 <a href={orden.urlFotos} target="_blank" rel="noopener noreferrer"
                   className="text-sm text-blue-600 hover:text-blue-800 break-all underline">
                   Ver álbum →
                 </a>
-              </div>
-            )}
+              ) : (
+                <p className="text-xs text-gray-400 italic">Sin fotografías</p>
+              )}
+            </div>
+
             {orden.urlFotosListo && (
               <div className="mt-3 pt-3 border-t border-gray-100">
                 <p className="text-xs text-gray-500 mb-1">✅ Fotos de entrega</p>
@@ -356,10 +434,64 @@ export default function OrdenDetalle() {
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
             <h3 className="text-lg font-bold text-gray-900 mb-1">Marcar como Lista</h3>
             <p className="text-sm text-gray-500 mb-5">
-              Ingresa el enlace del álbum con las fotos de los artículos ya limpios y listos para entregar. Este álbum es la evidencia del trabajo terminado.
+              Ingresa el enlace del álbum con las fotos de los artículos ya limpios y listos para entregar.
             </p>
+
+            {/* Opciones de tipo de entrega si hay mix express/normales */}
+            {hayMixExpressNormales && (
+              <div className="mb-5 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-sm font-semibold text-amber-900 mb-3">
+                  ⚡ Esta orden tiene artículos express y normales
+                </p>
+                <div className="space-y-2">
+                  <label className="flex items-start gap-3 cursor-pointer p-3 rounded-lg border-2 transition-colors"
+                    style={{
+                      borderColor: tipoEntrega === 'express' ? '#3B30D0' : '#E5E7EB',
+                      backgroundColor: tipoEntrega === 'express' ? '#F0EEFF' : 'white'
+                    }}>
+                    <input
+                      type="radio"
+                      name="tipoEntrega"
+                      value="express"
+                      checked={tipoEntrega === 'express'}
+                      onChange={e => setTipoEntrega(e.target.value)}
+                      className="mt-0.5"
+                      style={{ accentColor: '#3B30D0' }}
+                    />
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-gray-900">Solo artículos express listos</p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {itemsExpress.length} artículo(s) express • Los demás se entregarán el {formatearFecha(orden.fechaEntrega)}
+                      </p>
+                    </div>
+                  </label>
+                  <label className="flex items-start gap-3 cursor-pointer p-3 rounded-lg border-2 transition-colors"
+                    style={{
+                      borderColor: tipoEntrega === 'completa' ? '#3B30D0' : '#E5E7EB',
+                      backgroundColor: tipoEntrega === 'completa' ? '#F0EEFF' : 'white'
+                    }}>
+                    <input
+                      type="radio"
+                      name="tipoEntrega"
+                      value="completa"
+                      checked={tipoEntrega === 'completa'}
+                      onChange={e => setTipoEntrega(e.target.value)}
+                      className="mt-0.5"
+                      style={{ accentColor: '#3B30D0' }}
+                    />
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-gray-900">Todos los artículos están listos</p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {orden.items?.length} artículos completos
+                      </p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+            )}
+
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              📷 URL de fotografías de entrega *
+              URL de fotografías de entrega *
             </label>
             <input
               type="url"
@@ -367,7 +499,7 @@ export default function OrdenDetalle() {
               onChange={e => setUrlFotosListo(e.target.value)}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm mb-1 focus:outline-none focus:border-indigo-400"
               placeholder="https://photos.google.com/album/..."
-              autoFocus
+              autoFocus={!hayMixExpressNormales}
             />
             <p className="text-xs text-gray-400 mb-5">El botón se habilitará al ingresar una URL válida</p>
             <div className="flex gap-3">
@@ -383,7 +515,7 @@ export default function OrdenDetalle() {
                 className="flex-1 text-white rounded-lg py-2 text-sm font-bold disabled:opacity-40 transition-colors"
                 style={{ backgroundColor: '#16A34A' }}
               >
-                {cambiandoEstado ? 'Guardando...' : '✅ Confirmar — Listo'}
+                {cambiandoEstado ? 'Guardando...' : 'Confirmar'}
               </button>
             </div>
           </div>

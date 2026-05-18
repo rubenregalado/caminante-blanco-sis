@@ -105,4 +105,87 @@ async function enviarCorreoListoParaRecoger(orden) {
   return data
 }
 
-module.exports = { enviarCorreoOrdenRecibida, enviarCorreoListoParaRecoger }
+// ─── Correo 3: Artículos express listos (entrega parcial) ────────────────────
+async function enviarCorreoExpressListo(orden) {
+  const saldo = (parseFloat(orden.total) - parseFloat(orden.anticipo)).toFixed(2)
+  const fecha = new Date().toLocaleDateString('es-GT', {
+    day: '2-digit', month: '2-digit', year: 'numeric'
+  })
+  const fechaEntrega = orden.fechaEntrega
+    ? new Date(orden.fechaEntrega).toLocaleDateString('es-GT', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    : 'la fecha estimada'
+
+  // Contar items express
+  const itemsExpress = orden.items?.filter(item => 
+    item.servicio?.toLowerCase().includes('express')
+  ) || []
+  const itemsNormales = orden.items?.filter(item => 
+    !item.servicio?.toLowerCase().includes('express')
+  ) || []
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <h2 style="color: #1d4ed8;">Caminante Blanco</h2>
+      <p>Hola <strong>${orden.cliente.nombre}</strong>,</p>
+      <p>⚡ Tus <strong>artículos express</strong> de la orden <strong>No. ${orden.numeroOrden}</strong> ya están listos para recoger.</p>
+      
+      <div style="background:#fff5f5; border-left:4px solid #ef4444; padding:12px 16px; margin:20px 0; border-radius:4px;">
+        <p style="margin:0; font-size:14px; color:#991b1b;">
+          <strong>⏰ Servicio Express:</strong> ${itemsExpress.length} artículo(s) listo(s) para recoger hoy
+        </p>
+      </div>
+
+      ${itemsNormales.length > 0 ? `
+      <div style="background:#f0f9ff; border-left:4px solid #3b82f6; padding:12px 16px; margin:20px 0; border-radius:4px;">
+        <p style="margin:0; font-size:14px; color:#1e40af;">
+          <strong>📅 Servicio Regular:</strong> ${itemsNormales.length} artículo(s) restante(s) estarán listos el <strong>${fechaEntrega}</strong>
+        </p>
+      </div>
+      ` : ''}
+
+      <table style="width:100%; border-collapse:collapse; margin: 20px 0;">
+        <tr>
+          <td style="padding:8px; border-bottom:1px solid #e5e7eb;">📅 Fecha</td>
+          <td style="padding:8px; border-bottom:1px solid #e5e7eb;"><strong>${fecha}</strong></td>
+        </tr>
+        <tr>
+          <td style="padding:8px; border-bottom:1px solid #e5e7eb;">💰 Total de la orden</td>
+          <td style="padding:8px; border-bottom:1px solid #e5e7eb;"><strong>Q${parseFloat(orden.total).toFixed(2)}</strong></td>
+        </tr>
+        <tr>
+          <td style="padding:8px; border-bottom:1px solid #e5e7eb;">💰 Saldo pendiente</td>
+          <td style="padding:8px; border-bottom:1px solid #e5e7eb;"><strong>Q${saldo}</strong></td>
+        </tr>
+        <tr>
+          <td style="padding:8px;">💳 Forma de pago acordada</td>
+          <td style="padding:8px;"><strong>${orden.formaPago || 'efectivo'}</strong></td>
+        </tr>
+      </table>
+
+      <p style="color:#6b7280; font-size:14px;">
+        ${itemsNormales.length > 0 
+          ? 'Te notificaremos nuevamente cuando el resto de tus artículos esté listo.' 
+          : 'Puedes pasar a recoger cuando gustes.'}
+      </p>
+
+      <div style="background:#f0f9ff; padding:16px; border-radius:8px; margin-top:20px;">
+        <p style="margin:0;">📍 <strong>Dirección:</strong><br>8va. Ave. Calzada 2 Hector Zona 2, Chiquimula, Guatemala</p>
+        <p style="margin:8px 0 0;">📞 <strong>Teléfono:</strong> 5747-5054</p>
+        <p style="margin:8px 0 0;">📸 <strong>Instagram:</strong> @caminanteblancog</p>
+      </div>
+      <p style="margin-top:24px;">¡Gracias por confiar en <strong>Caminante Blanco</strong>!</p>
+    </div>
+  `
+
+  const { data, error } = await resend.emails.send({
+    from: process.env.RESEND_FROM,
+    to: orden.cliente.correo,
+    subject: `⚡ Artículos express listos - Orden ${orden.numeroOrden} - Caminante Blanco`,
+    html
+  })
+
+  if (error) throw new Error(error.message)
+  return data
+}
+
+module.exports = { enviarCorreoOrdenRecibida, enviarCorreoListoParaRecoger, enviarCorreoExpressListo }

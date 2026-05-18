@@ -1,6 +1,6 @@
 const prisma = require('../lib/prisma')
 const { generarNumeroOrden } = require('../utils/numeroOrden')
-const { enviarCorreoOrdenRecibida, enviarCorreoListoParaRecoger } = require('../services/email.service')
+const { enviarCorreoOrdenRecibida, enviarCorreoListoParaRecoger, enviarCorreoExpressListo } = require('../services/email.service')
 
 const ESTADOS_VALIDOS = ['pendiente', 'en_proceso', 'listo', 'entregado']
 
@@ -160,7 +160,7 @@ const actualizarOrden = async (req, res, next) => {
 
 const cambiarEstado = async (req, res, next) => {
   try {
-    const { estado, urlFotosListo } = req.body
+    const { estado, urlFotosListo, entregaParcial } = req.body
     const ordenId    = parseInt(req.params.id)
 
     if (!ESTADOS_VALIDOS.includes(estado)) {
@@ -182,9 +182,20 @@ const cambiarEstado = async (req, res, next) => {
 
     if (estado === 'listo' && orden.cliente.correo) {
       try {
-        const info = await enviarCorreoListoParaRecoger(orden)
+        let info
+        let mensaje
+        
+        // Decidir qué correo enviar según si es entrega parcial o completa
+        if (entregaParcial) {
+          info = await enviarCorreoExpressListo(orden)
+          mensaje = `Correo de express listos enviado a ${orden.cliente.correo}`
+        } else {
+          info = await enviarCorreoListoParaRecoger(orden)
+          mensaje = `Correo enviado a ${orden.cliente.correo}`
+        }
+        
         await prisma.notificacion.create({
-          data: { ordenId, tipo: 'correo', mensaje: `Correo enviado a ${orden.cliente.correo}`, enviadoAt: new Date(), estado: 'enviado' }
+          data: { ordenId, tipo: 'correo', mensaje, enviadoAt: new Date(), estado: 'enviado' }
         })
         console.log(`Correo enviado: ${info.id}`)
       } catch (emailError) {

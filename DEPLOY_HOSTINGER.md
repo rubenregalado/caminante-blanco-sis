@@ -20,7 +20,7 @@ No se necesita configuración extra en el cliente porque la `baseURL` ya es rela
 2. Crea una nueva base de datos. Hostinger asignará nombres como:
    - Base de datos: `u632233585_caminante`
    - Usuario: `u632233585_caminante`
-   - Contraseña: c@minantebl4nc0
+   - Contraseña: C@minantebl4nc02026
 3. Anota los tres datos, los necesitarás en el Paso 3.
 4. El **host** de la base de datos en Hostinger es siempre `127.0.0.1` (localhost interno).
 
@@ -50,15 +50,15 @@ Dentro de la configuración de la app Node.js en hPanel, busca la sección **Var
 ```
 NODE_ENV=production
 PORT=                     ← Hostinger lo asigna automáticamente, deja vacío o no lo pongas
-DATABASE_URL=mysql://u632233585_caminante:TU_PASSWORD@127.0.0.1:3306/u632233585_caminante
-JWT_SECRET=una_clave_larga_y_aleatoria_minimo_32_caracteres
+DATABASE_URL=mysql://u632233585_caminante:C@minantebl4nc02026@127.0.0.1:3306/u632233585_caminante
+JWT_SECRET=K8mP2nR7vY4wZ9xB3cF6hJ1kL5mN8pQ0sT2uV4wX6yZ9aC2eF5hJ7kM0nP3qR6sT8uV1wX4
 JWT_EXPIRES_IN=7d
-ADMIN_USER=admin
-ADMIN_PASSWORD=tu_password_segura
-COLAB_USER=colaborador
-COLAB_PASSWORD=tu_password_colaborador
-RESEND_API_KEY=re_TuClaveDeResend
-RESEND_FROM=Caminante Blanco <notificaciones@tudominio.com>
+ADMIN_USER=caminante
+ADMIN_PASSWORD=Caminante2026$
+COLAB_USER=colaborador2026
+COLAB_PASSWORD=Zapatos2026#
+RESEND_API_KEY=re_KSDczonZ_CcMBVvQj6zzDu5bk9cc6YS2c
+RESEND_FROM=Caminante Blanco <caminanteblanco@proasa.com.gt>
 ```
 
 > **Importante:** En Hostinger no uses el archivo `.env` del proyecto. Las variables se configuran directamente en hPanel y llegan como `process.env` al servidor.
