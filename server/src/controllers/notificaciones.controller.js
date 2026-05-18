@@ -1,16 +1,14 @@
 const { db } = require('../lib/db')
 const { ordenes, notificaciones } = require('../lib/schema')
 const { eq, desc } = require('drizzle-orm')
+const { findOrden } = require('../lib/helpers')
 const { enviarCorreoListoParaRecoger } = require('../services/email.service')
 
 const enviarCorreo = async (req, res, next) => {
   try {
     const ordenId = parseInt(req.params.ordenId)
 
-    const orden = await db.query.ordenes.findFirst({
-      where: eq(ordenes.id, ordenId),
-      with:  { cliente: true },
-    })
+    const orden = await findOrden(eq(ordenes.id, ordenId), { cliente: true })
 
     if (!orden) {
       const err = new Error('Registro no encontrado')

@@ -1,6 +1,7 @@
 const { db } = require('../lib/db')
 const { clientes, ordenes, itemsOrden, notificaciones } = require('../lib/schema')
 const { eq, or, like, and, inArray, desc, asc } = require('drizzle-orm')
+const { findOrden, findOrdenes } = require('../lib/helpers')
 const { generarNumeroOrden } = require('../utils/numeroOrden')
 const { enviarCorreoOrdenRecibida, enviarCorreoListoParaRecoger, enviarCorreoExpressListo } = require('../services/email.service')
 
@@ -69,7 +70,7 @@ const listarOrdenes = async (req, res, next) => {
       whereClause = or(...orConditions)
     }
 
-    const result = await db.query.ordenes.findMany({
+    const result = await findOrdenes({
       where:   whereClause,
       with:    { cliente: true, items: true },
       orderBy: [desc(ordenes.createdAt)],
@@ -84,10 +85,7 @@ const listarOrdenes = async (req, res, next) => {
 const obtenerOrden = async (req, res, next) => {
   try {
     const id = parseInt(req.params.id)
-    const orden = await db.query.ordenes.findFirst({
-      where: eq(ordenes.id, id),
-      with:  { cliente: true, items: true, notificaciones: true },
-    })
+    const orden = await findOrden(eq(ordenes.id, id), { cliente: true, items: true, notificaciones: true })
     if (!orden) {
       const err = new Error('Registro no encontrado')
       err.code = 'NOT_FOUND'
@@ -101,10 +99,7 @@ const obtenerOrden = async (req, res, next) => {
 
 const buscarPorNumero = async (req, res, next) => {
   try {
-    const orden = await db.query.ordenes.findFirst({
-      where: eq(ordenes.numeroOrden, req.params.numero),
-      with:  { cliente: true, items: true },
-    })
+    const orden = await findOrden(eq(ordenes.numeroOrden, req.params.numero), { cliente: true, items: true })
     if (!orden) {
       const err = new Error('Registro no encontrado')
       err.code = 'NOT_FOUND'
@@ -152,10 +147,7 @@ const crearOrden = async (req, res, next) => {
       }
     })
 
-    const orden = await db.query.ordenes.findFirst({
-      where: eq(ordenes.numeroOrden, numeroOrden),
-      with:  { cliente: true, items: true },
-    })
+    const orden = await findOrden(eq(ordenes.numeroOrden, numeroOrden), { cliente: true, items: true })
 
     if (orden.cliente.correo) {
       try {
@@ -223,10 +215,7 @@ const actualizarOrden = async (req, res, next) => {
       }
     }
 
-    const orden = await db.query.ordenes.findFirst({
-      where: eq(ordenes.id, ordenId),
-      with:  { cliente: true, items: true },
-    })
+    const orden = await findOrden(eq(ordenes.id, ordenId), { cliente: true, items: true })
     res.json(orden)
   } catch (error) {
     next(error)
@@ -251,10 +240,7 @@ const cambiarEstado = async (req, res, next) => {
 
     await db.update(ordenes).set(dataUpdate).where(eq(ordenes.id, ordenId))
 
-    const orden = await db.query.ordenes.findFirst({
-      where: eq(ordenes.id, ordenId),
-      with:  { cliente: true, items: true },
-    })
+    const orden = await findOrden(eq(ordenes.id, ordenId), { cliente: true, items: true })
 
     if (estado === 'listo' && orden.cliente.correo) {
       try {

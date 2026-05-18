@@ -1,6 +1,7 @@
 const { db } = require('../lib/db')
 const { clientes, ordenes } = require('../lib/schema')
 const { eq, or, like, asc, desc, count } = require('drizzle-orm')
+const { findOrdenes } = require('../lib/helpers')
 
 const listarClientes = async (req, res, next) => {
   try {
@@ -56,9 +57,9 @@ const obtenerCliente = async (req, res, next) => {
 const obtenerOrdenesCliente = async (req, res, next) => {
   try {
     const id = parseInt(req.params.id)
-    const result = await db.query.ordenes.findMany({
-      where: eq(ordenes.clienteId, id),
-      with:  { items: true },
+    const result = await findOrdenes({
+      where:   eq(ordenes.clienteId, id),
+      with:    { items: true },
       orderBy: [desc(ordenes.createdAt)],
     })
     res.json(result)

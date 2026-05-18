@@ -1,6 +1,7 @@
 const { db, pool } = require('../lib/db')
 const { clientes, ordenes } = require('../lib/schema')
 const { eq, and, or, gte, lt, lte, asc, desc, inArray, count, sum, avg } = require('drizzle-orm')
+const { findOrdenes } = require('../lib/helpers')
 
 const obtenerResumen = async (req, res, next) => {
   try {
@@ -22,13 +23,13 @@ const obtenerResumen = async (req, res, next) => {
       db.select({ cnt: count() }).from(ordenes).where(eq(ordenes.estado, 'en_proceso')),
       db.select({ cnt: count() }).from(ordenes).where(eq(ordenes.estado, 'listo')),
       db.select({ cnt: count() }).from(ordenes).where(eq(ordenes.estado, 'entregado')),
-      db.query.ordenes.findMany({
+      findOrdenes({
         where:   and(gte(ordenes.createdAt, inicioDia), lt(ordenes.createdAt, finDia)),
         with:    { cliente: true },
         orderBy: [desc(ordenes.createdAt)],
         limit:   10,
       }),
-      db.query.ordenes.findMany({
+      findOrdenes({
         where: and(
           inArray(ordenes.estado, ['pendiente', 'en_proceso']),
           gte(ordenes.fechaEntrega, inicioDia),
