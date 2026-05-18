@@ -1,11 +1,11 @@
 const errorHandler = (err, req, res, next) => {
   console.error(err.stack)
 
-  if (err.code === 'P2025') {
+  if (err.code === 'NOT_FOUND') {
     return res.status(404).json({ mensaje: 'Registro no encontrado' })
   }
 
-  if (err.code === 'P2002') {
+  if (err.errno === 1062 || err.code === 'ER_DUP_ENTRY') {
     return res.status(409).json({ mensaje: 'Ya existe un registro con ese valor único' })
   }
 

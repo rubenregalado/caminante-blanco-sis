@@ -1,26 +1,38 @@
-const prisma = require('../lib/prisma')
+const { db } = require('../lib/db')
+const { clientes, ordenes } = require('../lib/schema')
+const { eq, or, like, asc, desc, count } = require('drizzle-orm')
 
 const listarClientes = async (req, res, next) => {
   try {
     const { buscar } = req.query
-    const where = buscar
-      ? {
-          OR: [
-            { nombre: { contains: buscar } },
-            { telefono: { contains: buscar } },
-            { nit: { contains: buscar } },
-            { correo: { contains: buscar } }
-          ]
-        }
-      : {}
 
-    const clientes = await prisma.cliente.findMany({
-      where,
-      orderBy: { nombre: 'asc' },
-      include: { _count: { select: { ordenes: true } } }
-    })
+    const whereClause = buscar
+      ? or(
+          like(clientes.nombre,   `%${buscar}%`),
+          like(clientes.telefono, `%${buscar}%`),
+          like(clientes.nit,      `%${buscar}%`),
+          like(clientes.correo,   `%${buscar}%`)
+        )
+      : undefined
 
-    res.json(clientes)
+    const [clientesList, ordenesCounts] = await Promise.all([
+      db.select().from(clientes).where(whereClause).orderBy(asc(clientes.nombre)),
+      db.select({ clienteId: ordenes.clienteId, total: count() })
+        .from(ordenes)
+        .groupBy(ordenes.clienteId),
+    ])
+
+    const countMap = {}
+    for (const row of ordenesCounts) {
+      countMap[row.clienteId] = Number(row.total)
+    }
+
+    const result = clientesList.map(c => ({
+      ...c,
+      _count: { ordenes: countMap[c.id] || 0 },
+    }))
+
+    res.json(result)
   } catch (error) {
     next(error)
   }
@@ -28,10 +40,14 @@ const listarClientes = async (req, res, next) => {
 
 const obtenerCliente = async (req, res, next) => {
   try {
-    const cliente = await prisma.cliente.findUniqueOrThrow({
-      where: { id: parseInt(req.params.id) }
-    })
-    res.json(cliente)
+    const id = parseInt(req.params.id)
+    const rows = await db.select().from(clientes).where(eq(clientes.id, id))
+    if (!rows.length) {
+      const err = new Error('Registro no encontrado')
+      err.code = 'NOT_FOUND'
+      throw err
+    }
+    res.json(rows[0])
   } catch (error) {
     next(error)
   }
@@ -39,12 +55,13 @@ const obtenerCliente = async (req, res, next) => {
 
 const obtenerOrdenesCliente = async (req, res, next) => {
   try {
-    const ordenes = await prisma.orden.findMany({
-      where: { clienteId: parseInt(req.params.id) },
-      include: { items: true },
-      orderBy: { createdAt: 'desc' }
+    const id = parseInt(req.params.id)
+    const result = await db.query.ordenes.findMany({
+      where: eq(ordenes.clienteId, id),
+      with:  { items: true },
+      orderBy: [desc(ordenes.createdAt)],
     })
-    res.json(ordenes)
+    res.json(result)
   } catch (error) {
     next(error)
   }
@@ -58,15 +75,18 @@ const crearCliente = async (req, res, next) => {
       return res.status(400).json({ mensaje: 'El nombre es requerido' })
     }
 
-    const cliente = await prisma.cliente.create({
-      data: {
-        nombre, telefono, nit: nit || 'CF', direccion, correo,
-        genero: genero || null,
-        fechaNacimiento: fechaNacimiento ? new Date(fechaNacimiento) : null
-      }
-    })
+    const [{ id }] = await db.insert(clientes).values({
+      nombre,
+      telefono:        telefono || null,
+      nit:             nit || 'CF',
+      direccion:       direccion || null,
+      correo:          correo || null,
+      genero:          genero || null,
+      fechaNacimiento: fechaNacimiento ? new Date(fechaNacimiento) : null,
+    }).$returningId()
 
-    res.status(201).json(cliente)
+    const rows = await db.select().from(clientes).where(eq(clientes.id, id))
+    res.status(201).json(rows[0])
   } catch (error) {
     next(error)
   }
@@ -74,16 +94,26 @@ const crearCliente = async (req, res, next) => {
 
 const actualizarCliente = async (req, res, next) => {
   try {
+    const id = parseInt(req.params.id)
     const { nombre, telefono, nit, direccion, correo, genero, fechaNacimiento } = req.body
-    const cliente = await prisma.cliente.update({
-      where: { id: parseInt(req.params.id) },
-      data: {
-        nombre, telefono, nit, direccion, correo,
-        genero: genero || null,
-        fechaNacimiento: fechaNacimiento ? new Date(fechaNacimiento) : null
-      }
-    })
-    res.json(cliente)
+
+    await db.update(clientes).set({
+      nombre,
+      telefono:        telefono || null,
+      nit,
+      direccion:       direccion || null,
+      correo:          correo || null,
+      genero:          genero || null,
+      fechaNacimiento: fechaNacimiento ? new Date(fechaNacimiento) : null,
+    }).where(eq(clientes.id, id))
+
+    const rows = await db.select().from(clientes).where(eq(clientes.id, id))
+    if (!rows.length) {
+      const err = new Error('Registro no encontrado')
+      err.code = 'NOT_FOUND'
+      throw err
+    }
+    res.json(rows[0])
   } catch (error) {
     next(error)
   }
@@ -91,7 +121,7 @@ const actualizarCliente = async (req, res, next) => {
 
 const eliminarCliente = async (req, res, next) => {
   try {
-    await prisma.cliente.delete({ where: { id: parseInt(req.params.id) } })
+    await db.delete(clientes).where(eq(clientes.id, parseInt(req.params.id)))
     res.json({ mensaje: 'Cliente eliminado' })
   } catch (error) {
     next(error)
@@ -104,5 +134,5 @@ module.exports = {
   obtenerOrdenesCliente,
   crearCliente,
   actualizarCliente,
-  eliminarCliente
+  eliminarCliente,
 }

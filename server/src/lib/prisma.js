@@ -1,20 +1,3 @@
-const { PrismaClient } = require('@prisma/client')
-const { PrismaMysql2 } = require('@prisma/adapter-mysql2')
-const mysql = require('mysql2/promise')
-
-function parseMysqlUrl(url) {
-  const u = new URL(url)
-  return {
-    host: u.hostname,
-    port: parseInt(u.port) || 3306,
-    user: decodeURIComponent(u.username),
-    password: decodeURIComponent(u.password),
-    database: u.pathname.replace(/^\//, ''),
-  }
-}
-
-const pool = mysql.createPool(parseMysqlUrl(process.env.DATABASE_URL))
-const adapter = new PrismaMysql2(pool)
-const prisma = new PrismaClient({ adapter })
-
-module.exports = prisma
+// Compatibility shim — Prisma has been replaced by Drizzle ORM + mysql2.
+// Any remaining code that imports this file will receive the db and pool exports.
+module.exports = require('./db')

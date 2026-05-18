@@ -1,13 +1,22 @@
-const prisma = require('../lib/prisma')
+const { db } = require('../lib/db')
+const { ordenes, notificaciones } = require('../lib/schema')
+const { eq, desc } = require('drizzle-orm')
 const { enviarCorreoListoParaRecoger } = require('../services/email.service')
 
 const enviarCorreo = async (req, res, next) => {
   try {
     const ordenId = parseInt(req.params.ordenId)
-    const orden = await prisma.orden.findUniqueOrThrow({
-      where: { id: ordenId },
-      include: { cliente: true }
+
+    const orden = await db.query.ordenes.findFirst({
+      where: eq(ordenes.id, ordenId),
+      with:  { cliente: true },
     })
+
+    if (!orden) {
+      const err = new Error('Registro no encontrado')
+      err.code = 'NOT_FOUND'
+      throw err
+    }
 
     if (!orden.cliente.correo) {
       return res.status(400).json({ mensaje: 'El cliente no tiene correo registrado' })
@@ -15,17 +24,20 @@ const enviarCorreo = async (req, res, next) => {
 
     const info = await enviarCorreoListoParaRecoger(orden)
 
-    const notificacion = await prisma.notificacion.create({
-      data: {
-        ordenId,
-        tipo: 'correo',
-        mensaje: `Correo enviado a ${orden.cliente.correo}`,
-        enviadoAt: new Date(),
-        estado: 'enviado'
-      }
-    })
+    const [{ id: notifId }] = await db.insert(notificaciones).values({
+      ordenId,
+      tipo:     'correo',
+      mensaje:  `Correo enviado a ${orden.cliente.correo}`,
+      enviadoAt: new Date(),
+      estado:   'enviado',
+    }).$returningId()
 
-    res.json({ mensaje: 'Correo enviado', messageId: info.id, notificacion })
+    const notifRows = await db
+      .select()
+      .from(notificaciones)
+      .where(eq(notificaciones.id, notifId))
+
+    res.json({ mensaje: 'Correo enviado', messageId: info.id, notificacion: notifRows[0] })
   } catch (error) {
     next(error)
   }
@@ -33,11 +45,13 @@ const enviarCorreo = async (req, res, next) => {
 
 const obtenerNotificaciones = async (req, res, next) => {
   try {
-    const notificaciones = await prisma.notificacion.findMany({
-      where: { ordenId: parseInt(req.params.ordenId) },
-      orderBy: { enviadoAt: 'desc' }
-    })
-    res.json(notificaciones)
+    const result = await db
+      .select()
+      .from(notificaciones)
+      .where(eq(notificaciones.ordenId, parseInt(req.params.ordenId)))
+      .orderBy(desc(notificaciones.enviadoAt))
+
+    res.json(result)
   } catch (error) {
     next(error)
   }

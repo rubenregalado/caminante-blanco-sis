@@ -1,4 +1,6 @@
-const prisma = require('../lib/prisma')
+const { db } = require('../lib/db')
+const { clientes, ordenes, itemsOrden, notificaciones } = require('../lib/schema')
+const { eq, or, like, and, inArray, desc, asc } = require('drizzle-orm')
 const { generarNumeroOrden } = require('../utils/numeroOrden')
 const { enviarCorreoOrdenRecibida, enviarCorreoListoParaRecoger, enviarCorreoExpressListo } = require('../services/email.service')
 
@@ -31,20 +33,49 @@ const previsualizarNumero = async (req, res, next) => {
 const listarOrdenes = async (req, res, next) => {
   try {
     const { estado, buscar } = req.query
-    const where = {}
-    if (estado) where.estado = estado
-    if (buscar) {
-      where.OR = [
-        { numeroOrden: { contains: buscar } },
-        { cliente: { nombre: { contains: buscar } } }
-      ]
+
+    let whereClause
+
+    if (estado && buscar) {
+      // Find matching clienteIds first
+      const clienteRows = await db
+        .select({ id: clientes.id })
+        .from(clientes)
+        .where(like(clientes.nombre, `%${buscar}%`))
+      const clienteIds = clienteRows.map(c => c.id)
+
+      const orConditions = [like(ordenes.numeroOrden, `%${buscar}%`)]
+      if (clienteIds.length) {
+        orConditions.push(inArray(ordenes.clienteId, clienteIds))
+      }
+
+      whereClause = and(
+        eq(ordenes.estado, estado),
+        or(...orConditions)
+      )
+    } else if (estado) {
+      whereClause = eq(ordenes.estado, estado)
+    } else if (buscar) {
+      const clienteRows = await db
+        .select({ id: clientes.id })
+        .from(clientes)
+        .where(like(clientes.nombre, `%${buscar}%`))
+      const clienteIds = clienteRows.map(c => c.id)
+
+      const orConditions = [like(ordenes.numeroOrden, `%${buscar}%`)]
+      if (clienteIds.length) {
+        orConditions.push(inArray(ordenes.clienteId, clienteIds))
+      }
+      whereClause = or(...orConditions)
     }
-    const ordenes = await prisma.orden.findMany({
-      where,
-      include: { cliente: true, items: true },
-      orderBy: { createdAt: 'desc' }
+
+    const result = await db.query.ordenes.findMany({
+      where:   whereClause,
+      with:    { cliente: true, items: true },
+      orderBy: [desc(ordenes.createdAt)],
     })
-    res.json(ordenes)
+
+    res.json(result)
   } catch (error) {
     next(error)
   }
@@ -52,10 +83,16 @@ const listarOrdenes = async (req, res, next) => {
 
 const obtenerOrden = async (req, res, next) => {
   try {
-    const orden = await prisma.orden.findUniqueOrThrow({
-      where: { id: parseInt(req.params.id) },
-      include: { cliente: true, items: true, notificaciones: true }
+    const id = parseInt(req.params.id)
+    const orden = await db.query.ordenes.findFirst({
+      where: eq(ordenes.id, id),
+      with:  { cliente: true, items: true, notificaciones: true },
     })
+    if (!orden) {
+      const err = new Error('Registro no encontrado')
+      err.code = 'NOT_FOUND'
+      throw err
+    }
     res.json(orden)
   } catch (error) {
     next(error)
@@ -64,10 +101,15 @@ const obtenerOrden = async (req, res, next) => {
 
 const buscarPorNumero = async (req, res, next) => {
   try {
-    const orden = await prisma.orden.findUniqueOrThrow({
-      where: { numeroOrden: req.params.numero },
-      include: { cliente: true, items: true }
+    const orden = await db.query.ordenes.findFirst({
+      where: eq(ordenes.numeroOrden, req.params.numero),
+      with:  { cliente: true, items: true },
     })
+    if (!orden) {
+      const err = new Error('Registro no encontrado')
+      err.code = 'NOT_FOUND'
+      throw err
+    }
     res.json(orden)
   } catch (error) {
     next(error)
@@ -89,33 +131,50 @@ const crearOrden = async (req, res, next) => {
     const total = itemsData.reduce((sum, item) => sum + parseFloat(item.precio || 0), 0)
     const numeroOrden = await generarNumeroOrden()
 
-    const orden = await prisma.orden.create({
-      data: {
+    await db.transaction(async (tx) => {
+      const [{ id: ordenId }] = await tx.insert(ordenes).values({
         numeroOrden,
         clienteId:    parseInt(clienteId),
         fechaIngreso: new Date(fechaIngreso),
         fechaEntrega: fechaEntrega ? new Date(fechaEntrega) : null,
-        formaPago,
+        formaPago:    formaPago || null,
         anticipo:     parseFloat(anticipo || 0),
         total,
-        notas,
+        notas:        notas || null,
         urlFotos:     urlFotos || null,
-        estado: 'pendiente',
-        items: { create: itemsData.map(mapearItem) }
-      },
-      include: { cliente: true, items: true }
+        estado:       'pendiente',
+      }).$returningId()
+
+      if (itemsData.length) {
+        await tx.insert(itemsOrden).values(
+          itemsData.map(i => ({ ...mapearItem(i), ordenId }))
+        )
+      }
+    })
+
+    const orden = await db.query.ordenes.findFirst({
+      where: eq(ordenes.numeroOrden, numeroOrden),
+      with:  { cliente: true, items: true },
     })
 
     if (orden.cliente.correo) {
       try {
         await enviarCorreoOrdenRecibida(orden)
-        await prisma.notificacion.create({
-          data: { ordenId: orden.id, tipo: 'correo', mensaje: `Confirmación de recepción enviada a ${orden.cliente.correo}`, enviadoAt: new Date(), estado: 'enviado' }
+        await db.insert(notificaciones).values({
+          ordenId: orden.id,
+          tipo:     'correo',
+          mensaje:  `Confirmación de recepción enviada a ${orden.cliente.correo}`,
+          enviadoAt: new Date(),
+          estado:   'enviado',
         })
       } catch (emailError) {
         console.error('Error al enviar correo de recepción:', emailError.message)
-        await prisma.notificacion.create({
-          data: { ordenId: orden.id, tipo: 'correo', mensaje: `Fallo envío recepción: ${emailError.message}`, enviadoAt: new Date(), estado: 'fallido' }
+        await db.insert(notificaciones).values({
+          ordenId: orden.id,
+          tipo:     'correo',
+          mensaje:  `Fallo envío recepción: ${emailError.message}`,
+          enviadoAt: new Date(),
+          estado:   'fallido',
         })
       }
     }
@@ -130,27 +189,43 @@ const actualizarOrden = async (req, res, next) => {
   try {
     const { fechaEntrega, formaPago, anticipo, notas, urlFotos, items } = req.body
     const ordenId = parseInt(req.params.id)
-    const updateData = {}
-
-    if (fechaEntrega  !== undefined) updateData.fechaEntrega = fechaEntrega ? new Date(fechaEntrega) : null
-    if (formaPago     !== undefined) updateData.formaPago    = formaPago
-    if (anticipo      !== undefined) updateData.anticipo     = parseFloat(anticipo)
-    if (notas         !== undefined) updateData.notas        = notas
-    if (urlFotos      !== undefined) updateData.urlFotos     = urlFotos || null
 
     if (items) {
       if (items.length > 12) {
         return res.status(400).json({ mensaje: 'Máximo 12 artículos por orden' })
       }
-      updateData.total = items.reduce((sum, item) => sum + parseFloat(item.precio || 0), 0)
-      await prisma.itemOrden.deleteMany({ where: { ordenId } })
-      updateData.items = { create: items.map(mapearItem) }
+
+      const total = items.reduce((sum, item) => sum + parseFloat(item.precio || 0), 0)
+      const updateData = { total }
+      if (fechaEntrega  !== undefined) updateData.fechaEntrega = fechaEntrega ? new Date(fechaEntrega) : null
+      if (formaPago     !== undefined) updateData.formaPago    = formaPago
+      if (anticipo      !== undefined) updateData.anticipo     = parseFloat(anticipo)
+      if (notas         !== undefined) updateData.notas        = notas
+      if (urlFotos      !== undefined) updateData.urlFotos     = urlFotos || null
+
+      await db.transaction(async (tx) => {
+        await tx.update(ordenes).set(updateData).where(eq(ordenes.id, ordenId))
+        await tx.delete(itemsOrden).where(eq(itemsOrden.ordenId, ordenId))
+        await tx.insert(itemsOrden).values(
+          items.map(i => ({ ...mapearItem(i), ordenId }))
+        )
+      })
+    } else {
+      const updateData = {}
+      if (fechaEntrega  !== undefined) updateData.fechaEntrega = fechaEntrega ? new Date(fechaEntrega) : null
+      if (formaPago     !== undefined) updateData.formaPago    = formaPago
+      if (anticipo      !== undefined) updateData.anticipo     = parseFloat(anticipo)
+      if (notas         !== undefined) updateData.notas        = notas
+      if (urlFotos      !== undefined) updateData.urlFotos     = urlFotos || null
+
+      if (Object.keys(updateData).length) {
+        await db.update(ordenes).set(updateData).where(eq(ordenes.id, ordenId))
+      }
     }
 
-    const orden = await prisma.orden.update({
-      where: { id: ordenId },
-      data: updateData,
-      include: { cliente: true, items: true }
+    const orden = await db.query.ordenes.findFirst({
+      where: eq(ordenes.id, ordenId),
+      with:  { cliente: true, items: true },
     })
     res.json(orden)
   } catch (error) {
@@ -161,7 +236,7 @@ const actualizarOrden = async (req, res, next) => {
 const cambiarEstado = async (req, res, next) => {
   try {
     const { estado, urlFotosListo, entregaParcial } = req.body
-    const ordenId    = parseInt(req.params.id)
+    const ordenId = parseInt(req.params.id)
 
     if (!ESTADOS_VALIDOS.includes(estado)) {
       return res.status(400).json({ mensaje: `Estado inválido. Opciones: ${ESTADOS_VALIDOS.join(', ')}` })
@@ -174,18 +249,18 @@ const cambiarEstado = async (req, res, next) => {
     const dataUpdate = { estado }
     if (estado === 'listo') dataUpdate.urlFotosListo = urlFotosListo
 
-    const orden = await prisma.orden.update({
-      where: { id: ordenId },
-      data: dataUpdate,
-      include: { cliente: true, items: true }
+    await db.update(ordenes).set(dataUpdate).where(eq(ordenes.id, ordenId))
+
+    const orden = await db.query.ordenes.findFirst({
+      where: eq(ordenes.id, ordenId),
+      with:  { cliente: true, items: true },
     })
 
     if (estado === 'listo' && orden.cliente.correo) {
       try {
         let info
         let mensaje
-        
-        // Decidir qué correo enviar según si es entrega parcial o completa
+
         if (entregaParcial) {
           info = await enviarCorreoExpressListo(orden)
           mensaje = `Correo de express listos enviado a ${orden.cliente.correo}`
@@ -193,18 +268,27 @@ const cambiarEstado = async (req, res, next) => {
           info = await enviarCorreoListoParaRecoger(orden)
           mensaje = `Correo enviado a ${orden.cliente.correo}`
         }
-        
-        await prisma.notificacion.create({
-          data: { ordenId, tipo: 'correo', mensaje, enviadoAt: new Date(), estado: 'enviado' }
+
+        await db.insert(notificaciones).values({
+          ordenId,
+          tipo:     'correo',
+          mensaje,
+          enviadoAt: new Date(),
+          estado:   'enviado',
         })
         console.log(`Correo enviado: ${info.id}`)
       } catch (emailError) {
         console.error('Error al enviar correo:', emailError.message)
-        await prisma.notificacion.create({
-          data: { ordenId, tipo: 'correo', mensaje: `Fallo: ${emailError.message}`, enviadoAt: new Date(), estado: 'fallido' }
+        await db.insert(notificaciones).values({
+          ordenId,
+          tipo:     'correo',
+          mensaje:  `Fallo: ${emailError.message}`,
+          enviadoAt: new Date(),
+          estado:   'fallido',
         })
       }
     }
+
     res.json(orden)
   } catch (error) {
     next(error)
@@ -213,11 +297,20 @@ const cambiarEstado = async (req, res, next) => {
 
 const eliminarOrden = async (req, res, next) => {
   try {
-    await prisma.orden.delete({ where: { id: parseInt(req.params.id) } })
+    await db.delete(ordenes).where(eq(ordenes.id, parseInt(req.params.id)))
     res.json({ mensaje: 'Orden eliminada' })
   } catch (error) {
     next(error)
   }
 }
 
-module.exports = { previsualizarNumero, listarOrdenes, obtenerOrden, buscarPorNumero, crearOrden, actualizarOrden, cambiarEstado, eliminarOrden }
+module.exports = {
+  previsualizarNumero,
+  listarOrdenes,
+  obtenerOrden,
+  buscarPorNumero,
+  crearOrden,
+  actualizarOrden,
+  cambiarEstado,
+  eliminarOrden,
+}
