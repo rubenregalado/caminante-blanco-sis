@@ -15,12 +15,13 @@ const IconBag = () => (
   </svg>
 )
 import { useParams, useNavigate } from 'react-router-dom'
-import { obtenerOrden, cambiarEstado, eliminarOrden, actualizarOrden } from '../api/ordenes'
+import { obtenerOrden, cambiarEstado, eliminarOrden, actualizarOrden, actualizarFechaEntrega } from '../api/ordenes'
 import { enviarCorreo } from '../api/notificaciones'
 import Layout from '../components/Layout'
 import EstadoBadge from '../components/EstadoBadge'
 import ModalConfirmar from '../components/ModalConfirmar'
 import { formatearFecha, formatearMoneda } from '../utils/formatters'
+import { useAuth } from '../context/AuthContext'
 
 const FLUJO = ['pendiente', 'en_proceso', 'listo', 'entregado']
 
@@ -34,6 +35,7 @@ const ACCIONES = {
 export default function OrdenDetalle() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { esAdmin } = useAuth()
   const [orden, setOrden] = useState(null)
   const [cargando, setCargando] = useState(true)
   const [cambiandoEstado, setCambiandoEstado] = useState(false)
@@ -47,6 +49,9 @@ export default function OrdenDetalle() {
   const [nuevaUrlFotos, setNuevaUrlFotos] = useState('')
   const [guardandoUrlFotos, setGuardandoUrlFotos] = useState(false)
   const [tipoEntrega, setTipoEntrega] = useState('completa') // 'completa' o 'express'
+  const [editandoFechaEntrega, setEditandoFechaEntrega] = useState(false)
+  const [nuevaFechaEntrega, setNuevaFechaEntrega] = useState('')
+  const [guardandoFechaEntrega, setGuardandoFechaEntrega] = useState(false)
 
   const cargar = () => {
     setCargando(true)
@@ -140,6 +145,26 @@ export default function OrdenDetalle() {
   const iniciarEdicionUrlFotos = () => {
     setNuevaUrlFotos(orden.urlFotos || '')
     setEditandoUrlFotos(true)
+  }
+
+  const iniciarEdicionFechaEntrega = () => {
+    const str = orden.fechaEntrega ? String(orden.fechaEntrega).slice(0, 10) : ''
+    setNuevaFechaEntrega(str)
+    setEditandoFechaEntrega(true)
+  }
+
+  const handleGuardarFechaEntrega = async () => {
+    setGuardandoFechaEntrega(true)
+    try {
+      await actualizarFechaEntrega(orden.id, nuevaFechaEntrega || null)
+      setMensaje('Fecha de entrega actualizada')
+      setEditandoFechaEntrega(false)
+      cargar()
+    } catch {
+      setMensaje('Error al guardar la fecha')
+    } finally {
+      setGuardandoFechaEntrega(false)
+    }
   }
 
   if (cargando) {
@@ -335,9 +360,48 @@ export default function OrdenDetalle() {
                 <span className="text-gray-500">Ingreso</span>
                 <span>{formatearFecha(orden.fechaIngreso)}</span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between items-start">
                 <span className="text-gray-500">Entrega estimada</span>
-                <span>{formatearFecha(orden.fechaEntrega)}</span>
+                <div className="text-right">
+                  {editandoFechaEntrega ? (
+                    <div className="flex flex-col items-end gap-1.5">
+                      <input
+                        type="date"
+                        value={nuevaFechaEntrega}
+                        onChange={e => setNuevaFechaEntrega(e.target.value)}
+                        className="text-xs rounded border border-gray-300 px-2 py-1 focus:outline-none focus:border-indigo-400"
+                      />
+                      <div className="flex gap-1.5">
+                        <button
+                          onClick={() => setEditandoFechaEntrega(false)}
+                          className="text-xs border border-gray-300 text-gray-600 rounded px-2 py-1 hover:bg-gray-50"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          onClick={handleGuardarFechaEntrega}
+                          disabled={guardandoFechaEntrega}
+                          className="text-xs text-white rounded px-2 py-1 disabled:opacity-50"
+                          style={{ backgroundColor: '#3B30D0' }}
+                        >
+                          {guardandoFechaEntrega ? 'Guardando...' : 'Guardar'}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span>{formatearFecha(orden.fechaEntrega)}</span>
+                      {esAdmin && (
+                        <button
+                          onClick={iniciarEdicionFechaEntrega}
+                          className="text-xs text-blue-600 hover:text-blue-800"
+                        >
+                          Editar
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
             

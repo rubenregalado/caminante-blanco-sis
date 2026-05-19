@@ -16,3 +16,6 @@ export const cambiarEstado = (id, estado, extras = {}) =>
   api.patch(`/ordenes/${id}/estado`, { estado, ...extras })
 
 export const eliminarOrden = (id) => api.delete(`/ordenes/${id}`)
+
+export const actualizarFechaEntrega = (id, fechaEntrega) =>
+  api.patch(`/ordenes/${id}/fecha-entrega`, { fechaEntrega })

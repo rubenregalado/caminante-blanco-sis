@@ -290,6 +290,22 @@ const eliminarOrden = async (req, res, next) => {
   }
 }
 
+const actualizarFechaEntrega = async (req, res, next) => {
+  try {
+    const ordenId = parseInt(req.params.id)
+    const { fechaEntrega } = req.body
+
+    await db.update(ordenes)
+      .set({ fechaEntrega: fechaEntrega ? new Date(fechaEntrega) : null })
+      .where(eq(ordenes.id, ordenId))
+
+    const orden = await findOrden(eq(ordenes.id, ordenId), { cliente: true, items: true })
+    res.json(orden)
+  } catch (error) {
+    next(error)
+  }
+}
+
 module.exports = {
   previsualizarNumero,
   listarOrdenes,
@@ -299,4 +315,5 @@ module.exports = {
   actualizarOrden,
   cambiarEstado,
   eliminarOrden,
+  actualizarFechaEntrega,
 }

@@ -1,5 +1,5 @@
 const express = require('express')
-const { verificarToken } = require('../middleware/auth.middleware')
+const { verificarToken, verificarAdmin } = require('../middleware/auth.middleware')
 const {
   previsualizarNumero,
   listarOrdenes,
@@ -8,7 +8,8 @@ const {
   crearOrden,
   actualizarOrden,
   cambiarEstado,
-  eliminarOrden
+  eliminarOrden,
+  actualizarFechaEntrega,
 } = require('../controllers/ordenes.controller')
 
 const router = express.Router()
@@ -22,6 +23,7 @@ router.get('/:id', obtenerOrden)
 router.post('/', crearOrden)
 router.put('/:id', actualizarOrden)
 router.patch('/:id/estado', cambiarEstado)
+router.patch('/:id/fecha-entrega', verificarAdmin, actualizarFechaEntrega)
 router.delete('/:id', eliminarOrden)
 
 module.exports = router
