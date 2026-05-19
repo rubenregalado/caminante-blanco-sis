@@ -284,7 +284,7 @@ export default function OrdenDetalle() {
             <h3 className="font-semibold text-gray-900 mb-3">Cliente</h3>
             <p className="font-medium text-gray-900">{orden.cliente?.nombre}</p>
             {orden.cliente?.telefono && (
-              <p className="text-sm text-gray-500 mt-1">📞 {orden.cliente.telefono}</p>
+              <p className="text-sm text-gray-500 mt-1">{orden.cliente.telefono}</p>
             )}
             {orden.cliente?.correo && (
               <p className="text-sm text-gray-500 mt-0.5">✉️ {orden.cliente.correo}</p>
