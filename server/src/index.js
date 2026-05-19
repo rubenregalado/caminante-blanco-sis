@@ -16,10 +16,12 @@ console.log('COLAB_PASSWORD definida:', !!process.env.COLAB_PASSWORD)
 console.log('================================')
 
 const app = require('./app')
+const { iniciarJobCumpleanos } = require('./jobs/cumpleanos.job')
 
 const PORT = process.env.PORT || 3001
 
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en puerto ${PORT}`)
   console.log(`Ambiente: ${process.env.NODE_ENV || 'development'}`)
+  iniciarJobCumpleanos()
 })

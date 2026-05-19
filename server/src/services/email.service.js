@@ -188,4 +188,55 @@ async function enviarCorreoExpressListo(orden) {
   return data
 }
 
-module.exports = { enviarCorreoOrdenRecibida, enviarCorreoListoParaRecoger, enviarCorreoExpressListo }
+// ─── Correo 4: Felicitación de cumpleaños ────────────────────────────────────
+async function enviarCorreoCumpleanos(cliente) {
+  const nombre = cliente.nombre.split(' ')[0] // solo primer nombre
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <div style="text-align: center; padding: 32px 20px; background: linear-gradient(135deg, #3B30D0 0%, #5b52e0 100%); border-radius: 16px; margin-bottom: 24px;">
+        <p style="font-size: 48px; margin: 0;">🎂</p>
+        <h1 style="color: #ffffff; margin: 12px 0 4px; font-size: 28px;">¡Feliz Cumpleaños!</h1>
+        <p style="color: #c7c3f5; margin: 0; font-size: 16px;">${cliente.nombre}</p>
+      </div>
+
+      <p style="font-size: 16px; color: #374151;">Hola <strong>${nombre}</strong>,</p>
+      <p style="font-size: 15px; color: #374151; line-height: 1.6;">
+        Todo el equipo de <strong>Caminante Blanco</strong> te desea un día lleno de alegría, celebración y todo lo que mereces.
+        ¡Que este nuevo año de vida venga cargado de bendiciones!
+      </p>
+
+      <div style="background: #f0eeff; border-left: 4px solid #3B30D0; padding: 16px 20px; border-radius: 8px; margin: 24px 0;">
+        <p style="margin: 0; color: #3B30D0; font-size: 15px; font-weight: bold;">
+          Gracias por ser parte de nuestra familia.
+        </p>
+        <p style="margin: 8px 0 0; color: #5b52e0; font-size: 14px;">
+          Es un placer cuidar tus zapatos y accesorios en tu día especial.
+        </p>
+      </div>
+
+      <div style="background:#f9fafb; padding:16px; border-radius:8px; margin-top:20px;">
+        <p style="margin:0; color:#6b7280; font-size:13px;">📍 <strong>Dirección:</strong> 8va. Ave. Calzada 2 Hector Zona 2, Chiquimula, Guatemala</p>
+        <p style="margin:8px 0 0; color:#6b7280; font-size:13px;">📞 <strong>Teléfono:</strong> 5747-5054</p>
+        <p style="margin:8px 0 0; color:#6b7280; font-size:13px;">📸 <strong>Instagram:</strong> @caminanteblancog</p>
+      </div>
+
+      <p style="margin-top: 24px; color: #374151;">
+        Con cariño,<br/>
+        <strong>Equipo Caminante Blanco</strong>
+      </p>
+    </div>
+  `
+
+  const { data, error } = await resend.emails.send({
+    from: process.env.RESEND_FROM,
+    to: cliente.correo,
+    subject: `¡Feliz Cumpleaños ${nombre}! - Caminante Blanco`,
+    html,
+  })
+
+  if (error) throw new Error(error.message)
+  return data
+}
+
+module.exports = { enviarCorreoOrdenRecibida, enviarCorreoListoParaRecoger, enviarCorreoExpressListo, enviarCorreoCumpleanos }
