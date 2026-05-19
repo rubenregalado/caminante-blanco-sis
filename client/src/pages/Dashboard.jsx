@@ -513,21 +513,31 @@ export default function Dashboard() {
 
       {/* ── Cumpleaños ── */}
       {(resumen?.cumpleanos?.hoy?.length > 0 || resumen?.cumpleanos?.semana?.length > 0) && (
-        <div className="bg-white rounded-2xl border border-pink-100 p-5 mb-6"
-          style={{ background: 'linear-gradient(135deg, #fff5fb 0%, #ffffff 60%)' }}>
+        <div className="bg-white rounded-2xl border border-gray-200 p-5 mb-6">
           <div className="flex items-center gap-2 mb-4">
-            <span className="text-xl">🎂</span>
+            {/* Pastel minimalista azul */}
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3B30D0" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 21H4a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1z"/>
+              <path d="M16 12V9a4 4 0 0 0-8 0v3"/>
+              <line x1="12" y1="5" x2="12" y2="3"/>
+              <path d="M10 3c0-1 4-1 4 0"/>
+            </svg>
             <h3 className="font-bold text-gray-900">Cumpleaños</h3>
           </div>
 
           {resumen.cumpleanos.hoy.length > 0 && (
             <div className="mb-4">
-              <p className="text-xs font-semibold text-pink-500 uppercase tracking-wide mb-2">Hoy</p>
+              <p className="text-xs font-semibold uppercase tracking-wide mb-2" style={{ color: '#3B30D0' }}>Hoy</p>
               <div className="space-y-2">
                 {resumen.cumpleanos.hoy.map(c => (
                   <div key={c.id} className="flex items-center gap-3 rounded-xl px-4 py-2.5"
-                    style={{ backgroundColor: '#FDF2F8', border: '1px solid #FBCFE8' }}>
-                    <span className="text-lg">🎉</span>
+                    style={{ backgroundColor: '#F0EEFF', border: '1px solid #C7C3F5' }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3B30D0" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M20 21H4a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1z"/>
+                      <path d="M16 12V9a4 4 0 0 0-8 0v3"/>
+                      <line x1="12" y1="5" x2="12" y2="3"/>
+                      <path d="M10 3c0-1 4-1 4 0"/>
+                    </svg>
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-gray-900 text-sm truncate">{c.nombre}</p>
                       {c.correo && (
@@ -535,7 +545,7 @@ export default function Dashboard() {
                       )}
                     </div>
                     <span className="text-xs font-bold px-2 py-1 rounded-full shrink-0"
-                      style={{ backgroundColor: '#EC4899', color: '#ffffff' }}>
+                      style={{ backgroundColor: '#3B30D0', color: '#ffffff' }}>
                       Hoy
                     </span>
                   </div>
@@ -550,7 +560,11 @@ export default function Dashboard() {
               <div className="space-y-1.5">
                 {resumen.cumpleanos.semana.map(c => (
                   <div key={c.id} className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-gray-50 transition-colors">
-                    <span className="text-base">🎈</span>
+                    {/* Globo minimalista azul */}
+                    <svg width="14" height="18" viewBox="0 0 14 20" fill="none" stroke="#3B30D0" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <ellipse cx="7" cy="7" rx="6" ry="6.5"/>
+                      <path d="M7 13.5 Q6 15 7 16 Q8 17 7 18.5"/>
+                    </svg>
                     <p className="flex-1 text-sm text-gray-700 truncate">{c.nombre}</p>
                     <span className="text-xs text-gray-400 shrink-0">
                       en {c.diasParaCumple} {c.diasParaCumple === 1 ? 'día' : 'días'}
