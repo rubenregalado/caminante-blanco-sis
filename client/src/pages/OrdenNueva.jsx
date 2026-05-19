@@ -654,7 +654,7 @@ export default function OrdenNueva() {
 
             {/* Promociones */}
             <div className="sm:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">🏷️ Promoción</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Promoción</label>
               <select
                 value={form.promocion}
                 onChange={e => setForm({ ...form, promocion: e.target.value })}
@@ -706,7 +706,7 @@ export default function OrdenNueva() {
             </div>
             <div className="sm:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                📷 URL de fotografías de recepción
+                URL de fotografías de recepción
               </label>
               <input
                 type="url"
