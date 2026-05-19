@@ -467,6 +467,58 @@ export default function Dashboard() {
         </>
       )}
 
+      {/* ── Cumpleaños ── */}
+      {(resumen?.cumpleanos?.hoy?.length > 0 || resumen?.cumpleanos?.semana?.length > 0) && (
+        <div className="bg-white rounded-2xl border border-pink-100 p-5 mb-6"
+          style={{ background: 'linear-gradient(135deg, #fff5fb 0%, #ffffff 60%)' }}>
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-xl">🎂</span>
+            <h3 className="font-bold text-gray-900">Cumpleaños</h3>
+          </div>
+
+          {resumen.cumpleanos.hoy.length > 0 && (
+            <div className="mb-4">
+              <p className="text-xs font-semibold text-pink-500 uppercase tracking-wide mb-2">Hoy</p>
+              <div className="space-y-2">
+                {resumen.cumpleanos.hoy.map(c => (
+                  <div key={c.id} className="flex items-center gap-3 rounded-xl px-4 py-2.5"
+                    style={{ backgroundColor: '#FDF2F8', border: '1px solid #FBCFE8' }}>
+                    <span className="text-lg">🎉</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-gray-900 text-sm truncate">{c.nombre}</p>
+                      {c.correo && (
+                        <p className="text-xs text-gray-400 truncate">{c.correo}</p>
+                      )}
+                    </div>
+                    <span className="text-xs font-bold px-2 py-1 rounded-full shrink-0"
+                      style={{ backgroundColor: '#EC4899', color: '#ffffff' }}>
+                      Hoy
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {resumen.cumpleanos.semana.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Esta semana</p>
+              <div className="space-y-1.5">
+                {resumen.cumpleanos.semana.map(c => (
+                  <div key={c.id} className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-gray-50 transition-colors">
+                    <span className="text-base">🎈</span>
+                    <p className="flex-1 text-sm text-gray-700 truncate">{c.nombre}</p>
+                    <span className="text-xs text-gray-400 shrink-0">
+                      en {c.diasParaCumple} {c.diasParaCumple === 1 ? 'día' : 'días'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ── Secciones existentes ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Órdenes de hoy */}

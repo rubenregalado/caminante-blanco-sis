@@ -3,6 +3,31 @@ const { clientes, ordenes } = require('../lib/schema')
 const { eq, and, or, gte, lt, lte, asc, desc, inArray, count, sum, avg } = require('drizzle-orm')
 const { findOrdenes } = require('../lib/helpers')
 
+function calcularCumpleanos(clientesRows) {
+  const ahora = new Date()
+  const hoy = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate())
+
+  const cumpleHoy    = []
+  const cumpleSemana = []
+
+  for (const c of clientesRows) {
+    if (!c.fecha_nacimiento) continue
+    const fn = new Date(c.fecha_nacimiento)
+    let bday = new Date(hoy.getFullYear(), fn.getMonth(), fn.getDate())
+    // Si ya pasó este año, proyectar al siguiente
+    if (bday < hoy) bday = new Date(hoy.getFullYear() + 1, fn.getMonth(), fn.getDate())
+
+    const diffDias = Math.round((bday - hoy) / 86400000)
+
+    const cliente = { id: c.id, nombre: c.nombre, correo: c.correo || null, fechaNacimiento: c.fecha_nacimiento }
+    if (diffDias === 0)               cumpleHoy.push(cliente)
+    else if (diffDias >= 1 && diffDias < 7) cumpleSemana.push({ ...cliente, diasParaCumple: diffDias })
+  }
+
+  cumpleSemana.sort((a, b) => a.diasParaCumple - b.diasParaCumple)
+  return { cumpleHoy, cumpleSemana }
+}
+
 const obtenerResumen = async (req, res, next) => {
   try {
     const hoy = new Date()
@@ -18,6 +43,7 @@ const obtenerResumen = async (req, res, next) => {
       ordenesHoy,
       proximasEntregas,
       [{ total: sumHoy }],
+      [clientesConFecha],
     ] = await Promise.all([
       db.select({ cnt: count() }).from(ordenes).where(eq(ordenes.estado, 'pendiente')),
       db.select({ cnt: count() }).from(ordenes).where(eq(ordenes.estado, 'en_proceso')),
@@ -46,7 +72,12 @@ const obtenerResumen = async (req, res, next) => {
           gte(ordenes.createdAt, inicioDia),
           lt(ordenes.createdAt, finDia)
         )),
+      pool.promise().query(
+        `SELECT id, nombre, correo, fecha_nacimiento FROM clientes WHERE fecha_nacimiento IS NOT NULL`
+      ),
     ])
+
+    const { cumpleHoy, cumpleSemana } = calcularCumpleanos(clientesConFecha)
 
     res.json({
       estados: {
@@ -58,6 +89,7 @@ const obtenerResumen = async (req, res, next) => {
       ingresoHoy:      parseFloat(sumHoy || 0),
       ordenesHoy,
       proximasEntregas,
+      cumpleanos: { hoy: cumpleHoy, semana: cumpleSemana },
     })
   } catch (error) {
     next(error)
