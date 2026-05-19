@@ -252,7 +252,8 @@ export default function OrdenNueva() {
   const [nuevoCliente, setNuevoCliente] = useState({ nombre: '', telefono: '', nit: '', correo: '', genero: '', fechaNacimiento: '' })
   const [numeroPreview, setNumeroPreview] = useState('')
 
-  const hoy = new Date().toISOString().split('T')[0]
+  const _hd = new Date()
+  const hoy = `${_hd.getFullYear()}-${String(_hd.getMonth()+1).padStart(2,'0')}-${String(_hd.getDate()).padStart(2,'0')}`
   const [form, setForm] = useState({ fechaIngreso: hoy, fechaEntrega: '', formaPago: 'efectivo', anticipo: '', urlFotos: '', notas: '' })
   const [items, setItems] = useState([itemVacio('tenis')])
 
