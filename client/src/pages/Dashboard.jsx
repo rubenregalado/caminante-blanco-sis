@@ -204,6 +204,50 @@ export default function Dashboard() {
         ))}
       </div>
 
+      {/* ── Proyección de ingresos del mes (solo admin) ── */}
+      {esAdmin && resumen?.proyeccionMes && (
+        <div className="bg-white rounded-2xl border border-gray-200 p-5 mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-4">
+            <div>
+              <h3 className="font-bold text-gray-900">
+                Proyección de ingresos — {new Date().toLocaleDateString('es-GT', { month: 'long', year: 'numeric' })}
+              </h3>
+              <p className="text-xs text-gray-400 mt-0.5">Suma de todos los pedidos del mes, entregados y pendientes</p>
+            </div>
+            <span className="text-2xl font-bold shrink-0" style={{ color: '#3B30D0' }}>
+              {formatearMoneda(resumen.proyeccionMes.total)}
+            </span>
+          </div>
+
+          {/* Barra de progreso cobrado vs por cobrar */}
+          {resumen.proyeccionMes.total > 0 && (() => {
+            const pct = Math.round((resumen.proyeccionMes.cobrado / resumen.proyeccionMes.total) * 100)
+            return (
+              <>
+                <div className="w-full h-3 rounded-full overflow-hidden mb-3" style={{ backgroundColor: '#F3F4F6' }}>
+                  <div
+                    className="h-3 rounded-full transition-all"
+                    style={{ width: `${pct}%`, backgroundColor: '#3DDBA0' }}
+                  />
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: '#3DDBA0', display: 'inline-block' }} />
+                    <span className="text-gray-600">Ya cobrado</span>
+                    <span className="font-bold text-gray-900">{formatearMoneda(resumen.proyeccionMes.cobrado)}</span>
+                    <span className="text-gray-400 text-xs">({pct}%)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-600">Por cobrar</span>
+                    <span className="font-bold text-orange-600">{formatearMoneda(resumen.proyeccionMes.porCobrar)}</span>
+                  </div>
+                </div>
+              </>
+            )
+          })()}
+        </div>
+      )}
+
       {/* ── Analíticas (solo admin) ── */}
       {esAdmin && analiticas && (
         <>

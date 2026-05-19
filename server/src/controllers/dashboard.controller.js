@@ -34,6 +34,8 @@ const obtenerResumen = async (req, res, next) => {
     const inicioDia = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate())
     const finDia    = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + 1)
     const tresDias  = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + 3)
+    const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1)
+    const finMes    = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 1)
 
     const [
       [{ cnt: cntPendientes }],
@@ -44,6 +46,8 @@ const obtenerResumen = async (req, res, next) => {
       proximasEntregas,
       [{ total: sumHoy }],
       [clientesConFecha],
+      [{ total: sumMesTodo }],
+      [{ total: sumMesEntregado }],
     ] = await Promise.all([
       db.select({ cnt: count() }).from(ordenes).where(eq(ordenes.estado, 'pendiente')),
       db.select({ cnt: count() }).from(ordenes).where(eq(ordenes.estado, 'en_proceso')),
@@ -75,9 +79,24 @@ const obtenerResumen = async (req, res, next) => {
       pool.promise().query(
         `SELECT id, nombre, correo, fecha_nacimiento FROM clientes WHERE fecha_nacimiento IS NOT NULL`
       ),
+      // Total de todos los pedidos del mes (entregados + pendientes)
+      db.select({ total: sum(ordenes.total) })
+        .from(ordenes)
+        .where(and(gte(ordenes.createdAt, inicioMes), lt(ordenes.createdAt, finMes))),
+      // Solo los ya entregados (cobrado)
+      db.select({ total: sum(ordenes.total) })
+        .from(ordenes)
+        .where(and(
+          eq(ordenes.estado, 'entregado'),
+          gte(ordenes.createdAt, inicioMes),
+          lt(ordenes.createdAt, finMes)
+        )),
     ])
 
     const { cumpleHoy, cumpleSemana } = calcularCumpleanos(clientesConFecha)
+
+    const proyeccionMes = parseFloat(sumMesTodo || 0)
+    const cobradoMes    = parseFloat(sumMesEntregado || 0)
 
     res.json({
       estados: {
@@ -86,10 +105,15 @@ const obtenerResumen = async (req, res, next) => {
         listo:      Number(cntListos),
         entregado:  Number(cntEntregados),
       },
-      ingresoHoy:      parseFloat(sumHoy || 0),
+      ingresoHoy:  parseFloat(sumHoy || 0),
       ordenesHoy,
       proximasEntregas,
-      cumpleanos: { hoy: cumpleHoy, semana: cumpleSemana },
+      cumpleanos:  { hoy: cumpleHoy, semana: cumpleSemana },
+      proyeccionMes: {
+        total:     proyeccionMes,
+        cobrado:   cobradoMes,
+        porCobrar: Math.max(0, proyeccionMes - cobradoMes),
+      },
     })
   } catch (error) {
     next(error)
