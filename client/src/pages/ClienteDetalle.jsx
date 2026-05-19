@@ -72,26 +72,49 @@ export default function ClienteDetalle() {
             {editando ? (
               <form onSubmit={handleGuardar} className="space-y-3">
                 {[
-                  ['nombre', 'Nombre'],
-                  ['telefono', 'Teléfono'],
-                  ['nit', 'NIT'],
-                  ['correo', 'Correo'],
-                  ['direccion', 'Dirección']
-                ].map(([campo, label]) => (
+                  ['nombre',   'Nombre',    'text'],
+                  ['telefono', 'Teléfono',  'text'],
+                  ['nit',      'NIT',       'text'],
+                  ['correo',   'Correo',    'email'],
+                  ['direccion','Dirección', 'text'],
+                ].map(([campo, label, tipo]) => (
                   <div key={campo}>
                     <label className="text-xs text-gray-500">{label}</label>
                     <input
-                      type="text"
+                      type={tipo}
                       value={form[campo] || ''}
-                      onChange={(e) => setForm({ ...form, [campo]: e.target.value })}
+                      onChange={e => setForm({ ...form, [campo]: e.target.value })}
                       className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm mt-1"
                     />
                   </div>
                 ))}
+                <div>
+                  <label className="text-xs text-gray-500">Género</label>
+                  <select
+                    value={form.genero || ''}
+                    onChange={e => setForm({ ...form, genero: e.target.value })}
+                    className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm mt-1 bg-white"
+                  >
+                    <option value="">Sin especificar</option>
+                    <option value="masculino">Masculino</option>
+                    <option value="femenino">Femenino</option>
+                    <option value="otro">Otro</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500">Fecha de nacimiento</label>
+                  <input
+                    type="date"
+                    value={form.fechaNacimiento ? String(form.fechaNacimiento).slice(0, 10) : ''}
+                    onChange={e => setForm({ ...form, fechaNacimiento: e.target.value || null })}
+                    className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm mt-1"
+                  />
+                </div>
                 <button
                   type="submit"
                   disabled={guardando}
-                  className="w-full bg-blue-600 text-white rounded py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-60"
+                  className="w-full text-white rounded py-2 text-sm font-medium disabled:opacity-60"
+                  style={{ backgroundColor: '#3B30D0' }}
                 >
                   {guardando ? 'Guardando...' : 'Guardar cambios'}
                 </button>
@@ -114,6 +137,20 @@ export default function ClienteDetalle() {
                   <p className="text-xs text-gray-400">Dirección</p>
                   <p className="text-gray-800">{cliente.direccion || '—'}</p>
                 </div>
+                {cliente.genero && (
+                  <div>
+                    <p className="text-xs text-gray-400">Género</p>
+                    <p className="text-gray-800 capitalize">{
+                      { masculino: 'Masculino', femenino: 'Femenino', otro: 'Otro' }[cliente.genero] || cliente.genero
+                    }</p>
+                  </div>
+                )}
+                {cliente.fechaNacimiento && (
+                  <div>
+                    <p className="text-xs text-gray-400">Fecha de nacimiento</p>
+                    <p className="text-gray-800">{formatearFecha(cliente.fechaNacimiento)}</p>
+                  </div>
+                )}
                 <div>
                   <p className="text-xs text-gray-400">Cliente desde</p>
                   <p className="text-gray-800">{formatearFecha(cliente.createdAt)}</p>
