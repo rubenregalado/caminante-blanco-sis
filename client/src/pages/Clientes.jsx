@@ -195,7 +195,7 @@ export default function Clientes() {
                   <p className="font-semibold text-gray-900">{cliente.nombre}</p>
                   <span className="text-xs text-gray-400">{cliente._count?.ordenes || 0} órdenes</span>
                 </div>
-                {cliente.telefono && <p className="text-sm text-gray-500 mt-1">📞 {cliente.telefono}</p>}
+                {cliente.telefono && <p className="text-sm text-gray-500 mt-1">{cliente.telefono}</p>}
                 {cliente.correo && <p className="text-sm text-gray-500">{cliente.correo}</p>}
               </div>
             ))}
