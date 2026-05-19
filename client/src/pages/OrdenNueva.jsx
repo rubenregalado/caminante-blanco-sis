@@ -5,6 +5,74 @@ import { listarClientes, crearCliente } from '../api/clientes'
 import Layout from '../components/Layout'
 import { formatearMoneda } from '../utils/formatters'
 
+const PROMOCIONES = [
+  {
+    id: 'segundo_mitad',
+    label: 'Segundo a Mitad de Precio',
+    desc: 'El artículo más barato de cada par va al 50%.',
+    minItems: 2,
+  },
+  {
+    id: 'dos_x_uno',
+    label: '2×1 — Lleva 2, paga 1',
+    desc: 'Por cada 2 artículos, el más barato es gratis.',
+    minItems: 2,
+  },
+  {
+    id: 'tres_x_dos',
+    label: '3×2 — Lleva 3, paga 2',
+    desc: 'Por cada 3 artículos, el más barato es gratis.',
+    minItems: 3,
+  },
+]
+
+function calcularPromocion(items, promo) {
+  if (!promo) return { descuento: 0, lineas: [], mapaDescuentos: new Map() }
+
+  const conPrecio = items
+    .map((item, i) => ({
+      i,
+      precio: parseFloat(item.precio || 0),
+      nombre: item.servicio || (item.tipoItem === 'accesorio' ? 'Accesorio' : 'Calzado'),
+    }))
+    .filter(x => x.precio > 0)
+    .sort((a, b) => b.precio - a.precio) // mayor a menor
+
+  const N = conPrecio.length
+
+  let nDesc = 0
+  let factor = 0
+
+  if (promo === 'segundo_mitad') {
+    if (N < 2) return { descuento: 0, lineas: [], mapaDescuentos: new Map() }
+    nDesc = Math.floor(N / 2)
+    factor = 0.5
+  } else if (promo === 'dos_x_uno') {
+    if (N < 2) return { descuento: 0, lineas: [], mapaDescuentos: new Map() }
+    nDesc = Math.floor(N / 2)
+    factor = 0
+  } else if (promo === 'tres_x_dos') {
+    if (N < 3) return { descuento: 0, lineas: [], mapaDescuentos: new Map() }
+    nDesc = Math.floor(N / 3)
+    factor = 0
+  }
+
+  if (nDesc === 0) return { descuento: 0, lineas: [], mapaDescuentos: new Map() }
+
+  // Los nDesc más baratos (al final del array ordenado desc) reciben el descuento
+  const afectados = conPrecio.slice(N - nDesc)
+  const mapaDescuentos = new Map(afectados.map(x => [x.i, factor]))
+
+  const lineas = afectados.map(x => {
+    const ahorro = x.precio * (1 - factor)
+    const etiqueta = factor === 0 ? 'GRATIS' : '50% off'
+    return `${x.nombre} (Q${x.precio.toFixed(2)}) → ${etiqueta}: -Q${ahorro.toFixed(2)}`
+  })
+
+  const descuento = afectados.reduce((s, x) => s + x.precio * (1 - factor), 0)
+  return { descuento, lineas, mapaDescuentos }
+}
+
 const IconShoe = () => (
   <svg width="16" height="14" viewBox="0 0 32 20" fill="currentColor">
     <path d="M2 14C2 14 4 10 6 9L8 6L10.5 8.5L13.5 7L17 10L21 9C23 9 27 10.5 29 13C30 13.5 30 14 30 14H2Z"/>
@@ -254,7 +322,7 @@ export default function OrdenNueva() {
 
   const _hd = new Date()
   const hoy = `${_hd.getFullYear()}-${String(_hd.getMonth()+1).padStart(2,'0')}-${String(_hd.getDate()).padStart(2,'0')}`
-  const [form, setForm] = useState({ fechaIngreso: hoy, fechaEntrega: '', formaPago: 'efectivo', anticipo: '', urlFotos: '', notas: '' })
+  const [form, setForm] = useState({ fechaIngreso: hoy, fechaEntrega: '', formaPago: 'efectivo', anticipo: '', urlFotos: '', notas: '', promocion: '' })
   const [items, setItems] = useState([itemVacio('tenis')])
 
   useEffect(() => {
@@ -316,6 +384,9 @@ export default function OrdenNueva() {
   }
 
   const total = items.reduce((s, i) => s + parseFloat(i.precio || 0), 0)
+  const promoCalc = calcularPromocion(items, form.promocion)
+  const totalFinal = Math.max(0, total - promoCalc.descuento)
+  const nItemsConPrecio = items.filter(i => parseFloat(i.precio || 0) > 0).length
 
   const handleGuardarCliente = async () => {
     if (!nuevoCliente.nombre.trim()) return
@@ -366,13 +437,26 @@ export default function OrdenNueva() {
       return item
     })
 
+    // Aplicar descuentos de promoción a los precios de los items
+    let itemsFinales = itemsParaEnviar
+    if (promoCalc.mapaDescuentos.size > 0) {
+      itemsFinales = itemsParaEnviar.map((item, i) => {
+        if (promoCalc.mapaDescuentos.has(i)) {
+          const factor = promoCalc.mapaDescuentos.get(i)
+          return { ...item, precio: (parseFloat(item.precio || 0) * factor).toFixed(2) }
+        }
+        return item
+      })
+    }
+
+    const { promocion: _, ...formDatos } = form
     setCargando(true)
     try {
       const { data } = await crearOrden({
-        ...form,
+        ...formDatos,
         clienteId: parseInt(clienteId),
         anticipo:  parseFloat(form.anticipo || 0),
-        items: itemsParaEnviar,
+        items: itemsFinales,
       })
       navigate(`/ordenes/${data.id}`)
     } catch (err) {
@@ -548,9 +632,17 @@ export default function OrdenNueva() {
           </div>
 
           <div className="flex justify-end mt-4 pt-4 border-t border-gray-100">
-            <div className="text-right">
-              <p className="text-sm text-gray-500">Total estimado</p>
-              <p className="text-2xl font-bold text-gray-900">{formatearMoneda(total)}</p>
+            <div className="text-right space-y-0.5">
+              {promoCalc.descuento > 0 && (
+                <>
+                  <p className="text-sm text-gray-400">Subtotal: {formatearMoneda(total)}</p>
+                  <p className="text-sm font-medium text-green-600">
+                    {PROMOCIONES.find(p => p.id === form.promocion)?.label}: -{formatearMoneda(promoCalc.descuento)}
+                  </p>
+                </>
+              )}
+              <p className="text-xs text-gray-500">{promoCalc.descuento > 0 ? 'Total con descuento' : 'Total estimado'}</p>
+              <p className="text-2xl font-bold text-gray-900">{formatearMoneda(totalFinal)}</p>
             </div>
           </div>
         </div>
@@ -559,6 +651,44 @@ export default function OrdenNueva() {
         <div className="bg-white rounded-xl border border-gray-200 p-5">
           <h3 className="font-semibold text-gray-900 mb-4">Pago y recepción</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+            {/* Promociones */}
+            <div className="sm:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">🏷️ Promoción</label>
+              <select
+                value={form.promocion}
+                onChange={e => setForm({ ...form, promocion: e.target.value })}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white"
+              >
+                <option value="">Sin promoción</option>
+                {PROMOCIONES.map(p => (
+                  <option key={p.id} value={p.id} disabled={nItemsConPrecio < p.minItems}>
+                    {p.label}{nItemsConPrecio < p.minItems ? ` (mínimo ${p.minItems} artículos)` : ''}
+                  </option>
+                ))}
+              </select>
+              {form.promocion && promoCalc.descuento > 0 && (
+                <div className="mt-2 bg-green-50 border border-green-200 rounded-lg p-3 space-y-1">
+                  <p className="text-xs font-semibold text-green-700 mb-1">
+                    {PROMOCIONES.find(p => p.id === form.promocion)?.desc}
+                  </p>
+                  {promoCalc.lineas.map((linea, i) => (
+                    <p key={i} className="text-xs text-green-600 flex items-start gap-1">
+                      <span className="text-green-500 mt-px">✓</span> {linea}
+                    </p>
+                  ))}
+                  <p className="text-xs font-bold text-green-700 pt-1 border-t border-green-200 mt-1">
+                    Ahorro total: -{formatearMoneda(promoCalc.descuento)}
+                  </p>
+                </div>
+              )}
+              {form.promocion && promoCalc.descuento === 0 && (
+                <p className="text-xs text-amber-600 mt-1">
+                  Agrega al menos {PROMOCIONES.find(p => p.id === form.promocion)?.minItems} artículos con precio para aplicar esta promoción.
+                </p>
+              )}
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Forma de pago</label>
               <select value={form.formaPago} onChange={e => setForm({ ...form, formaPago: e.target.value })}
