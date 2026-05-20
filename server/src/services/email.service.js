@@ -2,6 +2,14 @@ const { Resend } = require('resend')
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
+const pieCorreo = `
+  <p style="margin-top:32px; padding-top:16px; border-top:1px solid #e5e7eb; text-align:center; font-size:11px; color:#9ca3af;">
+    Desarrollado por
+    <a href="https://www.scada.com.gt" style="color:#9ca3af; text-decoration:none;">SCADA S.A. Guatemala</a>
+    &nbsp;·&nbsp; www.scada.com.gt
+  </p>
+`
+
 // ─── Correo 1: Orden recibida ─────────────────────────────────────────────────
 async function enviarCorreoOrdenRecibida(orden) {
   const fecha = new Date(orden.fechaIngreso).toLocaleDateString('es-GT', {
@@ -45,6 +53,7 @@ async function enviarCorreoOrdenRecibida(orden) {
         <p style="margin:8px 0 0;">📸 <strong>Instagram:</strong> @caminanteblancog</p>
       </div>
       <p style="margin-top:24px;">¡Gracias por confiar en <strong>Caminante Blanco</strong>!</p>
+      ${pieCorreo}
     </div>
   `
 
@@ -91,6 +100,7 @@ async function enviarCorreoListoParaRecoger(orden) {
         <p style="margin:8px 0 0;">📸 <strong>Instagram:</strong> @caminanteblancog</p>
       </div>
       <p style="margin-top:24px;">¡Gracias por confiar en <strong>Caminante Blanco</strong>!</p>
+      ${pieCorreo}
     </div>
   `
 
@@ -174,6 +184,7 @@ async function enviarCorreoExpressListo(orden) {
         <p style="margin:8px 0 0;">📸 <strong>Instagram:</strong> @caminanteblancog</p>
       </div>
       <p style="margin-top:24px;">¡Gracias por confiar en <strong>Caminante Blanco</strong>!</p>
+      ${pieCorreo}
     </div>
   `
 
@@ -225,6 +236,7 @@ async function enviarCorreoCumpleanos(cliente) {
         Con cariño,<br/>
         <strong>Equipo Caminante Blanco</strong>
       </p>
+      ${pieCorreo}
     </div>
   `
 
