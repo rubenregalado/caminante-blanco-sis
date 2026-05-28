@@ -474,6 +474,15 @@ export default function OrdenDetalle() {
 
           {/* Acciones */}
           <div className="space-y-2">
+            {orden.cliente?.correo && (
+              <button
+                onClick={handleEnviarCorreo}
+                disabled={enviandoCorreo}
+                className="w-full border border-blue-300 text-blue-700 rounded-lg py-2 text-sm font-medium hover:bg-blue-50 disabled:opacity-50"
+              >
+                {enviandoCorreo ? 'Enviando...' : 'Enviar correo al cliente'}
+              </button>
+            )}
             <button
               onClick={() => setModalEliminar(true)}
               className="w-full border border-red-300 text-red-600 rounded-lg py-2 text-sm font-medium hover:bg-red-50"
