@@ -187,12 +187,25 @@ export default function OrdenDetalle() {
 
   return (
     <Layout>
-      <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => navigate('/ordenes')} className="text-gray-400 hover:text-gray-600">←</button>
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Orden #{orden.numeroOrden}</h2>
-          <p className="text-sm text-gray-500">Creada el {formatearFecha(orden.createdAt)}</p>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <button onClick={() => navigate('/ordenes')} className="text-gray-400 hover:text-gray-600">←</button>
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">Orden #{orden.numeroOrden}</h2>
+            <p className="text-sm text-gray-500">Creada el {formatearFecha(orden.createdAt)}</p>
+          </div>
         </div>
+        {orden.estado !== 'entregado' && (
+          <button
+            onClick={() => navigate(`/ordenes/${orden.id}/editar`)}
+            className="px-4 py-2 rounded-lg border text-sm font-medium transition-colors"
+            style={{ borderColor: '#3B30D0', color: '#3B30D0' }}
+            onMouseEnter={e => { e.currentTarget.style.backgroundColor = '#F0EEFF' }}
+            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}
+          >
+            Editar orden
+          </button>
+        )}
       </div>
 
       {mensaje && (

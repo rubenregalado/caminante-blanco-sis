@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard'
 import Ordenes from './pages/Ordenes'
 import OrdenNueva from './pages/OrdenNueva'
 import OrdenDetalle from './pages/OrdenDetalle'
+import OrdenEditar from './pages/OrdenEditar'
 import Clientes from './pages/Clientes'
 import ClienteDetalle from './pages/ClienteDetalle'
 
@@ -24,6 +25,7 @@ export default function App() {
           <Route path="/ordenes" element={<RutaProtegida><Ordenes /></RutaProtegida>} />
           <Route path="/ordenes/nueva" element={<RutaProtegida><OrdenNueva /></RutaProtegida>} />
           <Route path="/ordenes/:id" element={<RutaProtegida><OrdenDetalle /></RutaProtegida>} />
+          <Route path="/ordenes/:id/editar" element={<RutaProtegida><OrdenEditar /></RutaProtegida>} />
           <Route path="/clientes" element={<RutaProtegida><Clientes /></RutaProtegida>} />
           <Route path="/clientes/:id" element={<RutaProtegida><ClienteDetalle /></RutaProtegida>} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
