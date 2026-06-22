@@ -224,7 +224,7 @@ const actualizarOrden = async (req, res, next) => {
 
 const cambiarEstado = async (req, res, next) => {
   try {
-    const { estado, urlFotosListo, entregaParcial } = req.body
+    const { estado, urlFotosListo, entregaParcial, pagoEfectivo, pagoTransferencia, pagoTarjeta } = req.body
     const ordenId = parseInt(req.params.id)
 
     if (!ESTADOS_VALIDOS.includes(estado)) {
@@ -237,6 +237,12 @@ const cambiarEstado = async (req, res, next) => {
 
     const dataUpdate = { estado }
     if (estado === 'listo') dataUpdate.urlFotosListo = urlFotosListo
+    if (estado === 'entregado') {
+      dataUpdate.fechaEntregado    = new Date()
+      dataUpdate.pagoEfectivo      = parseFloat(pagoEfectivo      || 0)
+      dataUpdate.pagoTransferencia = parseFloat(pagoTransferencia || 0)
+      dataUpdate.pagoTarjeta       = parseFloat(pagoTarjeta       || 0)
+    }
 
     await db.update(ordenes).set(dataUpdate).where(eq(ordenes.id, ordenId))
 

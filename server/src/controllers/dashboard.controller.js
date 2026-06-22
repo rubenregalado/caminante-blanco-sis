@@ -48,6 +48,7 @@ const obtenerResumen = async (req, res, next) => {
       [clientesConFecha],
       [{ total: sumMesTodo }],
       [{ total: sumMesEntregado }],
+      [cajaRows],
     ] = await Promise.all([
       db.select({ cnt: count() }).from(ordenes).where(eq(ordenes.estado, 'pendiente')),
       db.select({ cnt: count() }).from(ordenes).where(eq(ordenes.estado, 'en_proceso')),
@@ -91,12 +92,26 @@ const obtenerResumen = async (req, res, next) => {
           gte(ordenes.createdAt, inicioMes),
           lt(ordenes.createdAt, finMes)
         )),
+      // Caja del día: órdenes entregadas HOY por método de pago
+      pool.promise().query(
+        `SELECT
+           COALESCE(SUM(total), 0)              AS totalCobrado,
+           COALESCE(SUM(pago_efectivo), 0)      AS totalEfectivo,
+           COALESCE(SUM(pago_transferencia), 0) AS totalTransferencia,
+           COALESCE(SUM(pago_tarjeta), 0)       AS totalTarjeta,
+           COUNT(*)                              AS ordenes
+         FROM ordenes
+         WHERE estado = 'entregado'
+           AND fecha_entregado >= ? AND fecha_entregado < ?`,
+        [inicioDia, finDia]
+      ),
     ])
 
     const { cumpleHoy, cumpleSemana } = calcularCumpleanos(clientesConFecha)
 
     const proyeccionMes = parseFloat(sumMesTodo || 0)
     const cobradoMes    = parseFloat(sumMesEntregado || 0)
+    const caja          = cajaRows[0] || {}
 
     res.json({
       estados: {
@@ -113,6 +128,13 @@ const obtenerResumen = async (req, res, next) => {
         total:     proyeccionMes,
         cobrado:   cobradoMes,
         porCobrar: Math.max(0, proyeccionMes - cobradoMes),
+      },
+      cajaHoy: {
+        totalCobrado:      parseFloat(caja.totalCobrado      || 0),
+        totalEfectivo:     parseFloat(caja.totalEfectivo     || 0),
+        totalTransferencia: parseFloat(caja.totalTransferencia || 0),
+        totalTarjeta:      parseFloat(caja.totalTarjeta      || 0),
+        ordenes:           Number(caja.ordenes               || 0),
       },
     })
   } catch (error) {

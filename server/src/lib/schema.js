@@ -14,19 +14,23 @@ const clientes = mysqlTable('clientes', {
 })
 
 const ordenes = mysqlTable('ordenes', {
-  id:            int('id').primaryKey().autoincrement(),
-  numeroOrden:   varchar('numero_orden', { length: 10 }).notNull().unique(),
-  clienteId:     int('cliente_id').notNull(),
-  fechaIngreso:  datetime('fecha_ingreso').notNull(),
-  fechaEntrega:  datetime('fecha_entrega'),
-  formaPago:     varchar('forma_pago', { length: 20 }),
-  anticipo:      decimal('anticipo', { precision: 10, scale: 2 }).default('0'),
-  total:         decimal('total', { precision: 10, scale: 2 }).default('0'),
-  estado:        varchar('estado', { length: 20 }).default('pendiente').notNull(),
-  notas:         text('notas'),
-  urlFotos:      text('url_fotos'),
-  urlFotosListo: text('url_fotos_listo'),
-  createdAt:     timestamp('created_at').defaultNow(),
+  id:                 int('id').primaryKey().autoincrement(),
+  numeroOrden:        varchar('numero_orden', { length: 10 }).notNull().unique(),
+  clienteId:          int('cliente_id').notNull(),
+  fechaIngreso:       datetime('fecha_ingreso').notNull(),
+  fechaEntrega:       datetime('fecha_entrega'),
+  formaPago:          varchar('forma_pago', { length: 20 }),
+  anticipo:           decimal('anticipo', { precision: 10, scale: 2 }).default('0'),
+  total:              decimal('total', { precision: 10, scale: 2 }).default('0'),
+  estado:             varchar('estado', { length: 20 }).default('pendiente').notNull(),
+  notas:              text('notas'),
+  urlFotos:           text('url_fotos'),
+  urlFotosListo:      text('url_fotos_listo'),
+  pagoEfectivo:       decimal('pago_efectivo', { precision: 10, scale: 2 }).default('0'),
+  pagoTransferencia:  decimal('pago_transferencia', { precision: 10, scale: 2 }).default('0'),
+  pagoTarjeta:        decimal('pago_tarjeta', { precision: 10, scale: 2 }).default('0'),
+  fechaEntregado:     datetime('fecha_entregado'),
+  createdAt:          timestamp('created_at').defaultNow(),
 })
 
 const itemsOrden = mysqlTable('items_orden', {

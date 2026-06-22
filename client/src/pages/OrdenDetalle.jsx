@@ -49,6 +49,11 @@ export default function OrdenDetalle() {
   const [nuevaUrlFotos, setNuevaUrlFotos] = useState('')
   const [guardandoUrlFotos, setGuardandoUrlFotos] = useState(false)
   const [tipoEntrega, setTipoEntrega] = useState('completa') // 'completa' o 'express'
+  const [modalPago, setModalPago] = useState(false)
+  const [pagoMetodo, setPagoMetodo] = useState('efectivo')
+  const [pagoMonto, setPagoMonto] = useState('')
+  const [pagoMixto, setPagoMixto] = useState(false)
+  const [pagosMixtos, setPagosMixtos] = useState({ efectivo: { activo: false, monto: '' }, transferencia: { activo: false, monto: '' }, tarjeta: { activo: false, monto: '' } })
   const [editandoFechaEntrega, setEditandoFechaEntrega] = useState(false)
   const [nuevaFechaEntrega, setNuevaFechaEntrega] = useState('')
   const [guardandoFechaEntrega, setGuardandoFechaEntrega] = useState(false)
@@ -70,6 +75,15 @@ export default function OrdenDetalle() {
       setUrlFotosListo('')
       setTipoEntrega('completa')
       setModalListo(true)
+      return
+    }
+    if (accion.siguiente === 'entregado') {
+      const saldoCalc = parseFloat(orden.total) - parseFloat(orden.anticipo)
+      setPagoMetodo('efectivo')
+      setPagoMonto(saldoCalc > 0 ? String(saldoCalc) : '')
+      setPagoMixto(false)
+      setPagosMixtos({ efectivo: { activo: false, monto: '' }, transferencia: { activo: false, monto: '' }, tarjeta: { activo: false, monto: '' } })
+      setModalPago(true)
       return
     }
     setCambiandoEstado(true)
@@ -98,6 +112,31 @@ export default function OrdenDetalle() {
       cargar()
     } catch {
       setMensaje('❌ Error al cambiar el estado')
+    } finally {
+      setCambiandoEstado(false)
+    }
+  }
+
+  const handleConfirmarPago = async () => {
+    let ef = 0, tr = 0, ta = 0
+    if (pagoMixto) {
+      ef = parseFloat(pagosMixtos.efectivo.activo      ? pagosMixtos.efectivo.monto      || 0 : 0)
+      tr = parseFloat(pagosMixtos.transferencia.activo ? pagosMixtos.transferencia.monto || 0 : 0)
+      ta = parseFloat(pagosMixtos.tarjeta.activo       ? pagosMixtos.tarjeta.monto       || 0 : 0)
+    } else {
+      const monto = parseFloat(pagoMonto || 0)
+      ef = pagoMetodo === 'efectivo'      ? monto : 0
+      tr = pagoMetodo === 'transferencia' ? monto : 0
+      ta = pagoMetodo === 'tarjeta'       ? monto : 0
+    }
+    setCambiandoEstado(true)
+    try {
+      await cambiarEstado(orden.id, 'entregado', { pagoEfectivo: ef, pagoTransferencia: tr, pagoTarjeta: ta })
+      setModalPago(false)
+      setMensaje('✅ Orden entregada y pago registrado.')
+      cargar()
+    } catch {
+      setMensaje('❌ Error al registrar el pago')
     } finally {
       setCambiandoEstado(false)
     }
@@ -342,12 +381,14 @@ export default function OrdenDetalle() {
           <div className="bg-white rounded-xl border border-gray-200 p-5">
             <h3 className="font-semibold text-gray-900 mb-3">Pago</h3>
             <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-500">Forma de pago</span>
-                <span className="font-medium">{
-                  { efectivo: 'Efectivo', transferencia: 'Transferencia', tarjeta: 'Tarjeta de crédito' }[orden.formaPago] || orden.formaPago || '—'
-                }</span>
-              </div>
+              {orden.formaPago && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Forma de pago</span>
+                  <span className="font-medium">{
+                    { efectivo: 'Efectivo', transferencia: 'Transferencia', tarjeta: 'Tarjeta de crédito' }[orden.formaPago] || orden.formaPago
+                  }</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-gray-500">Total</span>
                 <span className="font-bold text-gray-900">{formatearMoneda(orden.total)}</span>
@@ -362,6 +403,38 @@ export default function OrdenDetalle() {
                   {formatearMoneda(saldo)}
                 </span>
               </div>
+              {orden.estado === 'entregado' && (
+                (() => {
+                  const ef = parseFloat(orden.pagoEfectivo || 0)
+                  const tr = parseFloat(orden.pagoTransferencia || 0)
+                  const ta = parseFloat(orden.pagoTarjeta || 0)
+                  const total = ef + tr + ta
+                  if (total === 0) return null
+                  return (
+                    <div className="border-t border-gray-100 pt-2 space-y-1.5">
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Pago al entregar</p>
+                      {ef > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Efectivo</span>
+                          <span className="font-medium text-green-700">{formatearMoneda(ef)}</span>
+                        </div>
+                      )}
+                      {tr > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Transferencia</span>
+                          <span className="font-medium" style={{ color: '#3B30D0' }}>{formatearMoneda(tr)}</span>
+                        </div>
+                      )}
+                      {ta > 0 && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Tarjeta</span>
+                          <span className="font-medium text-amber-700">{formatearMoneda(ta)}</span>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })()
+              )}
             </div>
           </div>
 
@@ -598,6 +671,200 @@ export default function OrdenDetalle() {
           </div>
         </div>
       )}
+
+      {modalPago && (() => {
+        const saldoPendiente = parseFloat(orden.total) - parseFloat(orden.anticipo)
+
+        const METODOS = [
+          { value: 'efectivo',      label: 'Efectivo' },
+          { value: 'transferencia', label: 'Transferencia' },
+          { value: 'tarjeta',       label: 'Tarjeta' },
+        ]
+
+        // Cálculo según modo
+        let totalIngresado = 0
+        if (pagoMixto) {
+          totalIngresado = METODOS.reduce((s, m) =>
+            s + (pagosMixtos[m.value].activo ? parseFloat(pagosMixtos[m.value].monto || 0) : 0), 0)
+        } else {
+          totalIngresado = parseFloat(pagoMonto || 0)
+        }
+        const diferencia = saldoPendiente - totalIngresado
+        const activosMixtos = METODOS.filter(m => pagosMixtos[m.value].activo).length
+        const puedeConfirmar = !cambiandoEstado && (
+          pagoMixto
+            ? totalIngresado > 0 && activosMixtos >= 1
+            : totalIngresado > 0 || saldoPendiente <= 0
+        )
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-1">Registrar pago</h3>
+              <p className="text-sm text-gray-500 mb-4">
+                Confirma cómo se está realizando el pago al entregar la orden.
+              </p>
+
+              {/* Resumen financiero */}
+              <div className="bg-gray-50 rounded-xl p-4 mb-4 space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Total de la orden</span>
+                  <span className="font-semibold text-gray-900">{formatearMoneda(orden.total)}</span>
+                </div>
+                {parseFloat(orden.anticipo) > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Anticipo recibido</span>
+                    <span className="text-green-700">- {formatearMoneda(orden.anticipo)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between border-t border-gray-200 pt-2">
+                  <span className="font-semibold text-gray-700">Saldo a cobrar</span>
+                  <span className={`font-bold text-lg ${saldoPendiente > 0 ? 'text-orange-600' : 'text-green-600'}`}>
+                    {formatearMoneda(saldoPendiente)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Toggle pago mixto */}
+              <label className="flex items-center gap-2.5 mb-4 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={pagoMixto}
+                  onChange={e => setPagoMixto(e.target.checked)}
+                  className="w-4 h-4 rounded"
+                  style={{ accentColor: '#3B30D0' }}
+                />
+                <span className="text-sm font-medium text-gray-700">Pago con varios métodos</span>
+              </label>
+
+              {/* MODO SIMPLE */}
+              {!pagoMixto && (
+                <>
+                  <div className="mb-4">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Método de pago</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {METODOS.map(({ value, label }) => (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => setPagoMetodo(value)}
+                          className="py-2 rounded-lg border-2 text-sm font-semibold transition-all"
+                          style={pagoMetodo === value
+                            ? { borderColor: '#3B30D0', backgroundColor: '#EEF2FF', color: '#3B30D0' }
+                            : { borderColor: '#E5E7EB', backgroundColor: 'white', color: '#6B7280' }}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Monto recibido</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-semibold">Q</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={pagoMonto}
+                        onChange={e => setPagoMonto(e.target.value)}
+                        className="w-full pl-8 pr-3 py-3 rounded-lg border border-gray-300 text-base font-semibold focus:outline-none focus:border-indigo-400"
+                        placeholder="0.00"
+                        autoFocus
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {/* MODO MIXTO */}
+              {pagoMixto && (
+                <div className="mb-4 space-y-2">
+                  {METODOS.map(({ value, label }) => {
+                    const activo = pagosMixtos[value].activo
+                    return (
+                      <div
+                        key={value}
+                        className="rounded-xl border-2 p-3 transition-all"
+                        style={{ borderColor: activo ? '#3B30D0' : '#E5E7EB', backgroundColor: activo ? '#F8F7FF' : 'white' }}
+                      >
+                        <label className="flex items-center gap-2.5 cursor-pointer mb-0">
+                          <input
+                            type="checkbox"
+                            checked={activo}
+                            onChange={e => setPagosMixtos(p => ({
+                              ...p,
+                              [value]: { ...p[value], activo: e.target.checked, monto: e.target.checked ? p[value].monto : '' }
+                            }))}
+                            className="w-4 h-4 rounded shrink-0"
+                            style={{ accentColor: '#3B30D0' }}
+                          />
+                          <span className="text-sm font-semibold" style={{ color: activo ? '#3B30D0' : '#6B7280' }}>{label}</span>
+                        </label>
+                        {activo && (
+                          <div className="relative mt-2">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-semibold text-sm">Q</span>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={pagosMixtos[value].monto}
+                              onChange={e => setPagosMixtos(p => ({ ...p, [value]: { ...p[value], monto: e.target.value } }))}
+                              className="w-full pl-8 pr-3 py-2 rounded-lg border border-gray-300 text-sm font-semibold focus:outline-none focus:border-indigo-400"
+                              placeholder="0.00"
+                              autoFocus
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Indicador diferencia */}
+              {totalIngresado > 0 && (
+                <div className={`rounded-lg px-4 py-2.5 mb-4 flex items-center justify-between text-sm ${
+                  Math.abs(diferencia) < 0.01
+                    ? 'bg-green-50 border border-green-200'
+                    : diferencia > 0
+                    ? 'bg-orange-50 border border-orange-200'
+                    : 'bg-blue-50 border border-blue-200'
+                }`}>
+                  <span className={
+                    Math.abs(diferencia) < 0.01 ? 'text-green-700' :
+                    diferencia > 0 ? 'text-orange-700' : 'text-blue-700'
+                  }>
+                    {Math.abs(diferencia) < 0.01
+                      ? 'Pago exacto'
+                      : diferencia > 0
+                      ? `Falta ${formatearMoneda(diferencia)}`
+                      : `Vuelto ${formatearMoneda(Math.abs(diferencia))}`}
+                  </span>
+                  {pagoMixto && <span className="font-bold text-gray-900">{formatearMoneda(totalIngresado)}</span>}
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setModalPago(false)}
+                  className="flex-1 border border-gray-300 text-gray-700 rounded-lg py-2.5 text-sm font-medium hover:bg-gray-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleConfirmarPago}
+                  disabled={!puedeConfirmar}
+                  className="flex-1 text-white rounded-lg py-2.5 text-sm font-bold disabled:opacity-40 transition-colors"
+                  style={{ backgroundColor: '#16A34A' }}
+                >
+                  {cambiandoEstado ? 'Guardando...' : 'Confirmar entrega'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {modalEliminar && (
         <ModalConfirmar

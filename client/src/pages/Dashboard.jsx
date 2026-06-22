@@ -204,6 +204,37 @@ export default function Dashboard() {
         ))}
       </div>
 
+      {/* ── Caja del Día ── */}
+      {resumen?.cajaHoy && (
+        <div className="bg-white rounded-2xl border border-gray-200 p-5 mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 mb-4">
+            <div>
+              <h3 className="font-bold text-gray-900">Caja del día</h3>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {resumen.cajaHoy.ordenes === 0
+                  ? 'Sin órdenes entregadas hoy'
+                  : `${resumen.cajaHoy.ordenes} orden${resumen.cajaHoy.ordenes !== 1 ? 'es' : ''} entregada${resumen.cajaHoy.ordenes !== 1 ? 's' : ''} hoy`}
+              </p>
+            </div>
+            <span className="text-2xl font-bold shrink-0" style={{ color: '#3B30D0' }}>
+              {formatearMoneda(resumen.cajaHoy.totalCobrado)}
+            </span>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: 'Efectivo', value: resumen.cajaHoy.totalEfectivo,      color: '#16A34A', bg: '#F0FDF4', borde: '#BBF7D0' },
+              { label: 'Transferencia', value: resumen.cajaHoy.totalTransferencia, color: '#3B30D0', bg: '#EEF2FF', borde: '#C7D2FE' },
+              { label: 'Tarjeta',   value: resumen.cajaHoy.totalTarjeta,      color: '#B45309', bg: '#FFFBEB', borde: '#FDE68A' },
+            ].map(({ label, value, color, bg, borde }) => (
+              <div key={label} className="rounded-xl p-3 text-center" style={{ backgroundColor: bg, border: `1px solid ${borde}` }}>
+                <p className="text-xs font-semibold mb-1" style={{ color }}>{label}</p>
+                <p className="text-base font-bold" style={{ color }}>{formatearMoneda(value)}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ── Proyección de ingresos del mes (solo admin) ── */}
       {esAdmin && resumen?.proyeccionMes && (
         <div className="bg-white rounded-2xl border border-gray-200 p-5 mb-6">
