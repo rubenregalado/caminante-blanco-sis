@@ -285,11 +285,12 @@ export default function Ordenes() {
               {/* Tabla */}
               <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
                 {/* Cabecera — solo escritorio */}
-                <div className="hidden lg:grid grid-cols-[1fr_1.4fr_0.9fr_1.1fr_0.85fr_0.75fr_0.75fr] gap-3 px-4 py-3 border-b border-gray-100 text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                <div className="hidden lg:grid grid-cols-[1fr_1.4fr_0.9fr_0.9fr_0.9fr_0.85fr_0.75fr_0.75fr] gap-3 px-4 py-3 border-b border-gray-100 text-xs font-semibold text-gray-400 uppercase tracking-wide">
                   <span># Orden</span>
                   <span>Cliente</span>
                   <span>Ingreso</span>
-                  <span>Entrega</span>
+                  <span>Est.</span>
+                  <span>Real</span>
                   <span>Estado</span>
                   <span className="text-right">Total</span>
                   <span className="text-right">Saldo</span>
@@ -307,32 +308,21 @@ export default function Ordenes() {
                       className="cursor-pointer transition-colors hover:bg-indigo-50 border-b border-gray-100 last:border-0"
                     >
                       {/* Vista escritorio */}
-                      <div className="hidden lg:grid grid-cols-[1fr_1.4fr_0.9fr_1.1fr_0.85fr_0.75fr_0.75fr] gap-3 px-4 py-3 items-center">
+                      <div className="hidden lg:grid grid-cols-[1fr_1.4fr_0.9fr_0.9fr_0.9fr_0.85fr_0.75fr_0.75fr] gap-3 px-4 py-3 items-center">
                         <div className="flex items-center gap-1.5">
                           <span className="font-bold text-sm text-gray-900">#{orden.numeroOrden}</span>
                           {esExpress && <span className="text-xs font-bold px-1.5 py-0.5 rounded" style={{ backgroundColor: '#FEE2E2', color: '#DC2626' }}>⚡</span>}
                         </div>
                         <span className="text-sm text-gray-700 truncate">{orden.cliente?.nombre}</span>
                         <span className="text-sm text-gray-500">{formatearFecha(orden.fechaIngreso)}</span>
-
-                        {/* Columna Entrega: estimada + real */}
-                        <div className="flex flex-col gap-0.5">
-                          {orden.fechaEntrega ? (
-                            <span className="text-xs text-gray-400">
-                              Est. {formatearFecha(orden.fechaEntrega)}
-                            </span>
-                          ) : (
-                            <span className="text-xs text-gray-300">Sin fecha est.</span>
-                          )}
-                          {fechaReal ? (
-                            <span className="text-xs font-semibold text-green-700">
-                              Real {formatearFecha(fechaReal)}
-                            </span>
-                          ) : orden.estado === 'entregado' ? (
-                            <span className="text-xs text-green-600 italic">Entregado</span>
-                          ) : null}
-                        </div>
-
+                        <span className="text-sm text-gray-500">
+                          {orden.fechaEntrega ? formatearFecha(orden.fechaEntrega) : <span className="text-gray-300">—</span>}
+                        </span>
+                        <span className="text-sm">
+                          {fechaReal
+                            ? <span className="font-semibold text-green-700">{formatearFecha(fechaReal)}</span>
+                            : <span className="text-gray-300">—</span>}
+                        </span>
                         <EstadoBadge estado={orden.estado} />
                         <span className="text-sm font-semibold text-gray-900 text-right">{formatearMoneda(orden.total)}</span>
                         <span className={`text-sm font-semibold text-right ${saldo > 0 ? 'text-orange-500' : 'text-green-600'}`}>
