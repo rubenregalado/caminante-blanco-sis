@@ -1,6 +1,6 @@
 const { db } = require('../lib/db')
 const { clientes, ordenes, itemsOrden, notificaciones } = require('../lib/schema')
-const { eq, or, like, and, inArray, desc, asc } = require('drizzle-orm')
+const { eq, or, like, and, inArray, desc, asc, gte, lt } = require('drizzle-orm')
 const { findOrden, findOrdenes } = require('../lib/helpers')
 const { generarNumeroOrden } = require('../utils/numeroOrden')
 const { enviarCorreoOrdenRecibida, enviarCorreoListoParaRecoger, enviarCorreoExpressListo } = require('../services/email.service')
@@ -33,42 +33,38 @@ const previsualizarNumero = async (req, res, next) => {
 
 const listarOrdenes = async (req, res, next) => {
   try {
-    const { estado, buscar } = req.query
+    const { estado, buscar, fechaDesde, fechaHasta } = req.query
 
-    let whereClause
-
-    if (estado && buscar) {
-      // Find matching clienteIds first
+    // Resolver clienteIds si hay búsqueda por texto
+    let clienteIds = null
+    if (buscar) {
       const clienteRows = await db
         .select({ id: clientes.id })
         .from(clientes)
         .where(like(clientes.nombre, `%${buscar}%`))
-      const clienteIds = clienteRows.map(c => c.id)
-
-      const orConditions = [like(ordenes.numeroOrden, `%${buscar}%`)]
-      if (clienteIds.length) {
-        orConditions.push(inArray(ordenes.clienteId, clienteIds))
-      }
-
-      whereClause = and(
-        eq(ordenes.estado, estado),
-        or(...orConditions)
-      )
-    } else if (estado) {
-      whereClause = eq(ordenes.estado, estado)
-    } else if (buscar) {
-      const clienteRows = await db
-        .select({ id: clientes.id })
-        .from(clientes)
-        .where(like(clientes.nombre, `%${buscar}%`))
-      const clienteIds = clienteRows.map(c => c.id)
-
-      const orConditions = [like(ordenes.numeroOrden, `%${buscar}%`)]
-      if (clienteIds.length) {
-        orConditions.push(inArray(ordenes.clienteId, clienteIds))
-      }
-      whereClause = or(...orConditions)
+      clienteIds = clienteRows.map(c => c.id)
     }
+
+    const condiciones = []
+
+    if (estado) condiciones.push(eq(ordenes.estado, estado))
+
+    if (buscar) {
+      const orCond = [like(ordenes.numeroOrden, `%${buscar}%`)]
+      if (clienteIds.length) orCond.push(inArray(ordenes.clienteId, clienteIds))
+      condiciones.push(or(...orCond))
+    }
+
+    if (fechaDesde) condiciones.push(gte(ordenes.createdAt, new Date(fechaDesde)))
+    if (fechaHasta) {
+      const hasta = new Date(fechaHasta)
+      hasta.setDate(hasta.getDate() + 1) // incluir el día completo
+      condiciones.push(lt(ordenes.createdAt, hasta))
+    }
+
+    const whereClause = condiciones.length === 0 ? undefined
+      : condiciones.length === 1 ? condiciones[0]
+      : and(...condiciones)
 
     const result = await findOrdenes({
       where:   whereClause,
