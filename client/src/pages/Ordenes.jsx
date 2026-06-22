@@ -59,10 +59,18 @@ export default function Ordenes() {
       .finally(() => setCargando(false))
   }, [hBuscar, hDesde, hHasta, hEstado])
 
+  // Al entrar al historial carga todo; seguimiento responde a cambios de estado
   useEffect(() => {
     if (vista === 'seguimiento') cargarSeguimiento()
     else cargarHistorial()
   }, [vista, estadoFiltro])
+
+  // Chips de estado en historial aplican de inmediato
+  const cambiarEstadoHistorial = (estado) => {
+    const nuevo = hEstado === estado ? '' : estado
+    setHEstado(nuevo)
+    cargarHistorial({ estado: nuevo })
+  }
 
   const cambiarVista = (v) => {
     setOrdenes([])
@@ -86,7 +94,7 @@ export default function Ordenes() {
     setHDesde('')
     setHHasta('')
     setHEstado('')
-    cargarHistorial({ buscar: '', desde: '', hasta: '', estado: '' })
+    cargarHistorial({ buscar: '', desde: '', hasta: '', estado: '', })
   }
 
   const hayFiltrosHistorial = hBuscar || hDesde || hHasta || hEstado
@@ -237,11 +245,9 @@ export default function Ordenes() {
                   <button
                     key={estado}
                     type="button"
-                    onClick={() => setHEstado(e => e === estado ? '' : estado)}
+                    onClick={() => cambiarEstadoHistorial(estado)}
                     className="px-3 py-1.5 rounded-full text-xs font-medium transition-colors border"
-                    style={hEstado === estado && estado !== ''
-                      ? { backgroundColor: '#3B30D0', color: 'white', borderColor: '#3B30D0' }
-                      : hEstado === '' && estado === ''
+                    style={hEstado === estado
                       ? { backgroundColor: '#3B30D0', color: 'white', borderColor: '#3B30D0' }
                       : { backgroundColor: 'white', color: '#6B7280', borderColor: '#D1D5DB' }}
                   >
