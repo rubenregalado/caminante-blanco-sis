@@ -1,4 +1,15 @@
 const jwt = require('jsonwebtoken')
+const crypto = require('crypto')
+const { registrarFallo, limpiarIntentos } = require('../middleware/rateLimit.middleware')
+
+// Comparación de tiempo constante: se hashean ambos valores para igualar el
+// largo antes de timingSafeEqual, que exige buffers del mismo tamaño.
+const sonIguales = (a, b) => {
+  if (typeof a !== 'string' || typeof b !== 'string') return false
+  const hashA = crypto.createHash('sha256').update(a).digest()
+  const hashB = crypto.createHash('sha256').update(b).digest()
+  return crypto.timingSafeEqual(hashA, hashB)
+}
 
 const login = async (req, res, next) => {
   try {
@@ -13,21 +24,16 @@ const login = async (req, res, next) => {
       { usuario: process.env.COLAB_USER, password: process.env.COLAB_PASSWORD, rol: 'colaborador' },
     ]
 
-    // DIAGNÓSTICO TEMPORAL
-    console.log('[login] intento usuario:', usuario)
-    console.log('[login] ADMIN_USER env:', process.env.ADMIN_USER || '(no definido)')
-    console.log('[login] ADMIN_PASSWORD longitud:', process.env.ADMIN_PASSWORD ? process.env.ADMIN_PASSWORD.length : 0)
-    console.log('[login] password ingresada longitud:', password.length)
-    console.log('[login] coinciden:', process.env.ADMIN_PASSWORD === password)
-
     const user = USUARIOS.find(
-      u => u.usuario && u.password && u.usuario === usuario && u.password === password
+      u => u.usuario && u.password && sonIguales(u.usuario, usuario) && sonIguales(u.password, password)
     )
 
     if (!user) {
-      console.log('[login] 401 — no se encontró usuario válido')
+      registrarFallo(req)
       return res.status(401).json({ mensaje: 'Credenciales incorrectas' })
     }
+
+    limpiarIntentos(req)
 
     const token = jwt.sign(
       { usuario: user.usuario, rol: user.rol },

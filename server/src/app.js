@@ -11,20 +11,29 @@ const errorHandler = require('./middleware/errorHandler')
 
 const app = express()
 
-app.use(cors())
+// Hostinger sirve la app detrás de un proxy: sin esto req.ip sería siempre la IP
+// del proxy y el limitador de login metería a todos en el mismo contador.
+app.set('trust proxy', 1)
+
+// En producción el SPA se sirve desde este mismo origen, así que no hace falta
+// CORS abierto. CORS_ORIGIN permite habilitar orígenes puntuales si algún día se
+// separa el frontend. En desarrollo Vite hace proxy, pero se deja permisivo para
+// poder probar desde el teléfono en la red local.
+const origenesPermitidos = (process.env.CORS_ORIGIN || '')
+  .split(',')
+  .map(o => o.trim())
+  .filter(Boolean)
+
+app.use(cors(
+  process.env.NODE_ENV === 'production'
+    ? { origin: origenesPermitidos.length ? origenesPermitidos : false }
+    : {}
+))
+
 app.use(express.json())
 
-// DIAGNÓSTICO TEMPORAL — remover después de verificar
-app.get('/api/v1/diagnostico', (req, res) => {
-  res.json({
-    NODE_ENV: process.env.NODE_ENV || '(no definido)',
-    DATABASE_URL: !!process.env.DATABASE_URL,
-    JWT_SECRET: !!process.env.JWT_SECRET,
-    ADMIN_USER: process.env.ADMIN_USER || '(no definido)',
-    ADMIN_PASSWORD: !!process.env.ADMIN_PASSWORD,
-    COLAB_USER: process.env.COLAB_USER || '(no definido)',
-    COLAB_PASSWORD: !!process.env.COLAB_PASSWORD,
-  })
+app.get('/api/v1/salud', (req, res) => {
+  res.json({ estado: 'ok' })
 })
 
 app.use('/api/v1/auth', authRoutes)

@@ -7,3 +7,4 @@ client/dist/
 .DS_Store
 server/prisma/dev.db
 CREDENTIALS.md
+.claude/

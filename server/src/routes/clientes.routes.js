@@ -1,5 +1,5 @@
 const express = require('express')
-const { verificarToken } = require('../middleware/auth.middleware')
+const { verificarToken, verificarAdmin } = require('../middleware/auth.middleware')
 const {
   listarClientes,
   obtenerCliente,
@@ -18,6 +18,6 @@ router.get('/:id', obtenerCliente)
 router.get('/:id/ordenes', obtenerOrdenesCliente)
 router.post('/', crearCliente)
 router.put('/:id', actualizarCliente)
-router.delete('/:id', eliminarCliente)
+router.delete('/:id', verificarAdmin, eliminarCliente)
 
 module.exports = router

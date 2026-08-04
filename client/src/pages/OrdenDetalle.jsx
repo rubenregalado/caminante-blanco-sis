@@ -159,8 +159,8 @@ export default function OrdenDetalle() {
     try {
       await eliminarOrden(orden.id)
       navigate('/ordenes')
-    } catch {
-      setMensaje('❌ Error al eliminar la orden')
+    } catch (err) {
+      setMensaje('❌ ' + (err.response?.data?.mensaje || 'Error al eliminar la orden'))
       setModalEliminar(false)
     } finally {
       setEliminando(false)
@@ -569,12 +569,14 @@ export default function OrdenDetalle() {
                 {enviandoCorreo ? 'Enviando...' : 'Enviar correo al cliente'}
               </button>
             )}
-            <button
-              onClick={() => setModalEliminar(true)}
-              className="w-full border border-red-300 text-red-600 rounded-lg py-2 text-sm font-medium hover:bg-red-50"
-            >
-              Eliminar orden
-            </button>
+            {esAdmin && (
+              <button
+                onClick={() => setModalEliminar(true)}
+                className="w-full border border-red-300 text-red-600 rounded-lg py-2 text-sm font-medium hover:bg-red-50"
+              >
+                Eliminar orden
+              </button>
+            )}
           </div>
         </div>
       </div>

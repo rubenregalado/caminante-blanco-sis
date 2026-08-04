@@ -24,6 +24,6 @@ router.post('/', crearOrden)
 router.put('/:id', actualizarOrden)
 router.patch('/:id/estado', cambiarEstado)
 router.patch('/:id/fecha-entrega', verificarAdmin, actualizarFechaEntrega)
-router.delete('/:id', eliminarOrden)
+router.delete('/:id', verificarAdmin, eliminarOrden)
 
 module.exports = router
