@@ -211,9 +211,14 @@ export default function Dashboard() {
             <div>
               <h3 className="font-bold text-gray-900">Caja del día</h3>
               <p className="text-xs text-gray-400 mt-0.5">
-                {resumen.cajaHoy.ordenes === 0
-                  ? 'Sin órdenes entregadas hoy'
-                  : `${resumen.cajaHoy.ordenes} orden${resumen.cajaHoy.ordenes !== 1 ? 'es' : ''} entregada${resumen.cajaHoy.ordenes !== 1 ? 's' : ''} hoy`}
+                {(() => {
+                  const partes = []
+                  if (resumen.cajaHoy.ordenesEntregadas > 0)
+                    partes.push(`${resumen.cajaHoy.ordenesEntregadas} entrega${resumen.cajaHoy.ordenesEntregadas !== 1 ? 's' : ''}`)
+                  if (resumen.cajaHoy.ordenesConAnticipo > 0)
+                    partes.push(`${resumen.cajaHoy.ordenesConAnticipo} anticipo${resumen.cajaHoy.ordenesConAnticipo !== 1 ? 's' : ''}`)
+                  return partes.length > 0 ? partes.join(' · ') : 'Sin movimientos hoy'
+                })()}
               </p>
             </div>
             <span className="text-2xl font-bold shrink-0" style={{ color: '#3B30D0' }}>
@@ -222,9 +227,9 @@ export default function Dashboard() {
           </div>
           <div className="grid grid-cols-3 gap-3">
             {[
-              { label: 'Efectivo', value: resumen.cajaHoy.totalEfectivo,      color: '#16A34A', bg: '#F0FDF4', borde: '#BBF7D0' },
-              { label: 'Transferencia', value: resumen.cajaHoy.totalTransferencia, color: '#3B30D0', bg: '#EEF2FF', borde: '#C7D2FE' },
-              { label: 'Tarjeta',   value: resumen.cajaHoy.totalTarjeta,      color: '#B45309', bg: '#FFFBEB', borde: '#FDE68A' },
+              { label: 'Efectivo',      value: resumen.cajaHoy.totalEfectivo,       color: '#16A34A', bg: '#F0FDF4', borde: '#BBF7D0' },
+              { label: 'Transferencia', value: resumen.cajaHoy.totalTransferencia,  color: '#3B30D0', bg: '#EEF2FF', borde: '#C7D2FE' },
+              { label: 'Tarjeta',       value: resumen.cajaHoy.totalTarjeta,        color: '#B45309', bg: '#FFFBEB', borde: '#FDE68A' },
             ].map(({ label, value, color, bg, borde }) => (
               <div key={label} className="rounded-xl p-3 text-center" style={{ backgroundColor: bg, border: `1px solid ${borde}` }}>
                 <p className="text-xs font-semibold mb-1" style={{ color }}>{label}</p>

@@ -48,7 +48,8 @@ const obtenerResumen = async (req, res, next) => {
       [clientesConFecha],
       [{ total: sumMesTodo }],
       [{ total: sumMesEntregado }],
-      [cajaRows],
+      [cajaEntregaRows],
+      [cajaAnticipoRows],
     ] = await Promise.all([
       db.select({ cnt: count() }).from(ordenes).where(eq(ordenes.estado, 'pendiente')),
       db.select({ cnt: count() }).from(ordenes).where(eq(ordenes.estado, 'en_proceso')),
@@ -92,17 +93,29 @@ const obtenerResumen = async (req, res, next) => {
           gte(ordenes.createdAt, inicioMes),
           lt(ordenes.createdAt, finMes)
         )),
-      // Caja del día: órdenes entregadas HOY por método de pago
+      // Caja del día — pagos al entregar (registrados con fecha_entregado)
       pool.promise().query(
         `SELECT
-           COALESCE(SUM(total), 0)              AS totalCobrado,
-           COALESCE(SUM(pago_efectivo), 0)      AS totalEfectivo,
-           COALESCE(SUM(pago_transferencia), 0) AS totalTransferencia,
-           COALESCE(SUM(pago_tarjeta), 0)       AS totalTarjeta,
+           COALESCE(SUM(pago_efectivo), 0)      AS ef,
+           COALESCE(SUM(pago_transferencia), 0) AS tr,
+           COALESCE(SUM(pago_tarjeta), 0)       AS ta,
            COUNT(*)                              AS ordenes
          FROM ordenes
          WHERE estado = 'entregado'
            AND fecha_entregado >= ? AND fecha_entregado < ?`,
+        [inicioDia, finDia]
+      ),
+      // Caja del día — anticipos cobrados hoy al crear la orden
+      pool.promise().query(
+        `SELECT
+           COALESCE(SUM(CASE WHEN forma_pago = 'efectivo'      THEN anticipo ELSE 0 END), 0) AS ef,
+           COALESCE(SUM(CASE WHEN forma_pago = 'transferencia' THEN anticipo ELSE 0 END), 0) AS tr,
+           COALESCE(SUM(CASE WHEN forma_pago = 'tarjeta'       THEN anticipo ELSE 0 END), 0) AS ta,
+           COALESCE(SUM(anticipo), 0)                                                         AS total,
+           COUNT(*)                                                                            AS ordenes
+         FROM ordenes
+         WHERE anticipo > 0
+           AND created_at >= ? AND created_at < ?`,
         [inicioDia, finDia]
       ),
     ])
@@ -111,7 +124,13 @@ const obtenerResumen = async (req, res, next) => {
 
     const proyeccionMes = parseFloat(sumMesTodo || 0)
     const cobradoMes    = parseFloat(sumMesEntregado || 0)
-    const caja          = cajaRows[0] || {}
+
+    const entrega   = cajaEntregaRows[0]   || {}
+    const anticipo  = cajaAnticipoRows[0]  || {}
+
+    const ef = parseFloat(entrega.ef  || 0) + parseFloat(anticipo.ef  || 0)
+    const tr = parseFloat(entrega.tr  || 0) + parseFloat(anticipo.tr  || 0)
+    const ta = parseFloat(entrega.ta  || 0) + parseFloat(anticipo.ta  || 0)
 
     res.json({
       estados: {
@@ -130,11 +149,12 @@ const obtenerResumen = async (req, res, next) => {
         porCobrar: Math.max(0, proyeccionMes - cobradoMes),
       },
       cajaHoy: {
-        totalCobrado:      parseFloat(caja.totalCobrado      || 0),
-        totalEfectivo:     parseFloat(caja.totalEfectivo     || 0),
-        totalTransferencia: parseFloat(caja.totalTransferencia || 0),
-        totalTarjeta:      parseFloat(caja.totalTarjeta      || 0),
-        ordenes:           Number(caja.ordenes               || 0),
+        totalCobrado:       ef + tr + ta,
+        totalEfectivo:      ef,
+        totalTransferencia: tr,
+        totalTarjeta:       ta,
+        ordenesEntregadas:  Number(entrega.ordenes  || 0),
+        ordenesConAnticipo: Number(anticipo.ordenes || 0),
       },
     })
   } catch (error) {
