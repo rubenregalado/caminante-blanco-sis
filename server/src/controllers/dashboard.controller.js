@@ -2,6 +2,7 @@ const { db, pool } = require('../lib/db')
 const { clientes, ordenes } = require('../lib/schema')
 const { eq, and, or, gte, lt, lte, asc, desc, inArray, count, sum, avg } = require('drizzle-orm')
 const { findOrdenes } = require('../lib/helpers')
+const { hoyEnNegocio, rangoDelDia, ES_FECHA_ISO } = require('../utils/fechas')
 
 function calcularCumpleanos(clientesRows) {
   const ahora = new Date()
@@ -31,9 +32,10 @@ function calcularCumpleanos(clientesRows) {
 const obtenerResumen = async (req, res, next) => {
   try {
     const hoy = new Date()
-    const inicioDia = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate())
-    const finDia    = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + 1)
-    const tresDias  = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + 3)
+    // El día se corta a medianoche de Guatemala para que coincida con el cierre
+    // diario, aunque el servidor corra en otra zona horaria.
+    const { inicio: inicioDia, fin: finDia } = rangoDelDia(hoyEnNegocio())
+    const tresDias  = new Date(inicioDia.getTime() + 3 * 24 * 60 * 60 * 1000)
     const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1)
     const finMes    = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 1)
 
@@ -48,8 +50,7 @@ const obtenerResumen = async (req, res, next) => {
       [clientesConFecha],
       [{ total: sumMesTodo }],
       [{ total: sumMesEntregado }],
-      [cajaEntregaRows],
-      [cajaAnticipoRows],
+      caja,
     ] = await Promise.all([
       db.select({ cnt: count() }).from(ordenes).where(eq(ordenes.estado, 'pendiente')),
       db.select({ cnt: count() }).from(ordenes).where(eq(ordenes.estado, 'en_proceso')),
@@ -93,44 +94,13 @@ const obtenerResumen = async (req, res, next) => {
           gte(ordenes.createdAt, inicioMes),
           lt(ordenes.createdAt, finMes)
         )),
-      // Caja del día — pagos al entregar (registrados con fecha_entregado)
-      pool.promise().query(
-        `SELECT
-           COALESCE(SUM(pago_efectivo), 0)      AS ef,
-           COALESCE(SUM(pago_transferencia), 0) AS tr,
-           COALESCE(SUM(pago_tarjeta), 0)       AS ta,
-           COUNT(*)                              AS ordenes
-         FROM ordenes
-         WHERE estado = 'entregado'
-           AND fecha_entregado >= ? AND fecha_entregado < ?`,
-        [inicioDia, finDia]
-      ),
-      // Caja del día — anticipos cobrados hoy al crear la orden
-      pool.promise().query(
-        `SELECT
-           COALESCE(SUM(CASE WHEN forma_pago = 'efectivo'      THEN anticipo ELSE 0 END), 0) AS ef,
-           COALESCE(SUM(CASE WHEN forma_pago = 'transferencia' THEN anticipo ELSE 0 END), 0) AS tr,
-           COALESCE(SUM(CASE WHEN forma_pago = 'tarjeta'       THEN anticipo ELSE 0 END), 0) AS ta,
-           COALESCE(SUM(anticipo), 0)                                                         AS total,
-           COUNT(*)                                                                            AS ordenes
-         FROM ordenes
-         WHERE anticipo > 0
-           AND created_at >= ? AND created_at < ?`,
-        [inicioDia, finDia]
-      ),
+      calcularCajaDelDia(hoyEnNegocio()),
     ])
 
     const { cumpleHoy, cumpleSemana } = calcularCumpleanos(clientesConFecha)
 
     const proyeccionMes = parseFloat(sumMesTodo || 0)
     const cobradoMes    = parseFloat(sumMesEntregado || 0)
-
-    const entrega   = cajaEntregaRows[0]   || {}
-    const anticipo  = cajaAnticipoRows[0]  || {}
-
-    const ef = parseFloat(entrega.ef  || 0) + parseFloat(anticipo.ef  || 0)
-    const tr = parseFloat(entrega.tr  || 0) + parseFloat(anticipo.tr  || 0)
-    const ta = parseFloat(entrega.ta  || 0) + parseFloat(anticipo.ta  || 0)
 
     res.json({
       estados: {
@@ -149,12 +119,18 @@ const obtenerResumen = async (req, res, next) => {
         porCobrar: Math.max(0, proyeccionMes - cobradoMes),
       },
       cajaHoy: {
-        totalCobrado:       ef + tr + ta,
-        totalEfectivo:      ef,
-        totalTransferencia: tr,
-        totalTarjeta:       ta,
-        ordenesEntregadas:  Number(entrega.ordenes  || 0),
-        ordenesConAnticipo: Number(anticipo.ordenes || 0),
+        totalCobrado:       caja.totales.total,
+        totalEfectivo:      caja.totales.efectivo,
+        totalTransferencia: caja.totales.transferencia,
+        totalTarjeta:       caja.totales.tarjeta,
+        ordenesEntregadas:  caja.conteo.saldos,
+        ordenesConAnticipo: caja.conteo.anticipos,
+        // Estado del cajón: lo que había al abrir, lo que debería haber ahora, y
+        // el cierre del día si ya se registró.
+        saldoInicial:       caja.saldoInicial,
+        saldoInicialDesde:  caja.saldoInicialDesde,
+        efectivoEnCaja:     caja.efectivoEnCaja,
+        cierre:             caja.cierre,
       },
     })
   } catch (error) {
@@ -289,4 +265,164 @@ const obtenerAnaliticas = async (req, res, next) => {
   }
 }
 
-module.exports = { obtenerResumen, obtenerAnaliticas }
+// Estado de la caja en un día: cuánto había al abrir, cuánto entró y cuánto
+// debería haber ahora. Cada movimiento es una entrada real de dinero — un
+// anticipo cobrado al recibir la orden, o un pago recibido al entregarla. Una
+// orden puede aparecer dos veces (anticipo un día, saldo otro) y eso es correcto.
+//
+// Lo usan tanto el dashboard como el modal de cierre, para que el número que se
+// ve durante el día y el que se cuadra al cerrar salgan del mismo cálculo.
+async function calcularCajaDelDia(fecha) {
+  {
+    const { inicio, fin } = rangoDelDia(fecha)
+
+    // Un pago al entregar puede repartirse entre varios métodos, así que se
+    // desglosa en un movimiento por método con monto mayor a cero.
+    const [movimientosRows] = await pool.promise().query(
+      `SELECT * FROM (
+         SELECT 'anticipo' AS tipo, o.numero_orden, c.nombre AS cliente,
+                o.forma_pago AS metodo, o.anticipo AS monto, o.created_at AS momento
+         FROM ordenes o JOIN clientes c ON c.id = o.cliente_id
+         WHERE o.anticipo > 0 AND o.created_at >= ? AND o.created_at < ?
+
+         UNION ALL
+         SELECT 'saldo', o.numero_orden, c.nombre, 'efectivo', o.pago_efectivo, o.fecha_entregado
+         FROM ordenes o JOIN clientes c ON c.id = o.cliente_id
+         WHERE o.estado = 'entregado' AND o.pago_efectivo > 0
+           AND o.fecha_entregado >= ? AND o.fecha_entregado < ?
+
+         UNION ALL
+         SELECT 'saldo', o.numero_orden, c.nombre, 'transferencia', o.pago_transferencia, o.fecha_entregado
+         FROM ordenes o JOIN clientes c ON c.id = o.cliente_id
+         WHERE o.estado = 'entregado' AND o.pago_transferencia > 0
+           AND o.fecha_entregado >= ? AND o.fecha_entregado < ?
+
+         UNION ALL
+         SELECT 'saldo', o.numero_orden, c.nombre, 'tarjeta', o.pago_tarjeta, o.fecha_entregado
+         FROM ordenes o JOIN clientes c ON c.id = o.cliente_id
+         WHERE o.estado = 'entregado' AND o.pago_tarjeta > 0
+           AND o.fecha_entregado >= ? AND o.fecha_entregado < ?
+       ) AS movimientos
+       ORDER BY momento ASC`,
+      [inicio, fin, inicio, fin, inicio, fin, inicio, fin]
+    )
+
+    const movimientos = movimientosRows.map(m => ({
+      tipo:        m.tipo,
+      numeroOrden: m.numero_orden,
+      cliente:     m.cliente,
+      metodo:      m.metodo || 'efectivo',
+      monto:       parseFloat(m.monto || 0),
+      momento:     m.momento,
+    }))
+
+    // Los totales se derivan del detalle para que nunca puedan discrepar de la
+    // lista que ve el usuario al cuadrar.
+    const acumular = (filtro) =>
+      movimientos.filter(filtro).reduce((s, m) => s + m.monto, 0)
+
+    const efectivo      = acumular(m => m.metodo === 'efectivo')
+    const transferencia = acumular(m => m.metodo === 'transferencia')
+    const tarjeta       = acumular(m => m.metodo === 'tarjeta')
+
+    const [[cierreGuardado], [cierreAnterior]] = await Promise.all([
+      pool.promise()
+        .query(`SELECT caja_chica, notas, updated_at FROM cierres_caja WHERE fecha = ?`, [fecha])
+        .then(([r]) => [r[0] || null]),
+      // El último cierre anterior, no necesariamente el de ayer: si el negocio
+      // no abrió el domingo, el saldo inicial del lunes viene del sábado.
+      // DATE_FORMAT y no la columna cruda: mysql2 convierte DATE a un Date de
+      // JS con hora, y al serializarlo podría cambiar de día.
+      pool.promise()
+        .query(
+          `SELECT DATE_FORMAT(fecha, '%Y-%m-%d') AS fecha, caja_chica
+           FROM cierres_caja WHERE fecha < ? ORDER BY fecha DESC LIMIT 1`,
+          [fecha]
+        )
+        .then(([r]) => [r[0] || null]),
+    ])
+
+    const saldoInicial   = parseFloat(cierreAnterior?.caja_chica || 0)
+    const efectivoEnCaja = saldoInicial + efectivo
+
+    // Se cuentan órdenes distintas y no filas: un pago repartido entre efectivo
+    // y tarjeta son dos movimientos, pero una sola entrega.
+    const ordenesDistintas = (tipo) =>
+      new Set(movimientos.filter(m => m.tipo === tipo).map(m => m.numeroOrden)).size
+
+    return {
+      fecha,
+      totales: {
+        efectivo,
+        transferencia,
+        tarjeta,
+        total: efectivo + transferencia + tarjeta,
+      },
+      // Lo que debe estar físicamente en el cajón: el saldo que quedó del cierre
+      // anterior más el efectivo de hoy. Transferencias y tarjeta van al banco.
+      saldoInicial,
+      efectivoEnCaja,
+      saldoInicialDesde: cierreAnterior?.fecha || null,
+      cierre: cierreGuardado
+        ? {
+            cajaChica:   parseFloat(cierreGuardado.caja_chica || 0),
+            notas:       cierreGuardado.notas || '',
+            actualizado: cierreGuardado.updated_at,
+            // Lo que se saca del cajón: todo menos lo que se deja para mañana.
+            aRetirar:    Math.max(0, efectivoEnCaja - parseFloat(cierreGuardado.caja_chica || 0)),
+          }
+        : null,
+      conteo: {
+        movimientos: movimientos.length,
+        anticipos:   ordenesDistintas('anticipo'),
+        saldos:      ordenesDistintas('saldo'),
+      },
+      movimientos,
+    }
+  }
+}
+
+const obtenerCierreDiario = async (req, res, next) => {
+  try {
+    const fecha = req.query.fecha || hoyEnNegocio()
+
+    if (!ES_FECHA_ISO.test(fecha)) {
+      return res.status(400).json({ mensaje: 'La fecha debe tener el formato YYYY-MM-DD' })
+    }
+
+    res.json(await calcularCajaDelDia(fecha))
+  } catch (error) {
+    next(error)
+  }
+}
+
+// Registra (o corrige) el cierre de un día. Se puede volver a guardar el mismo
+// día para ajustar el monto sin crear un registro duplicado.
+const guardarCierreDiario = async (req, res, next) => {
+  try {
+    const fecha = req.body.fecha || hoyEnNegocio()
+    const { cajaChica, notas } = req.body
+
+    if (!ES_FECHA_ISO.test(fecha)) {
+      return res.status(400).json({ mensaje: 'La fecha debe tener el formato YYYY-MM-DD' })
+    }
+
+    const monto = parseFloat(cajaChica)
+
+    if (!Number.isFinite(monto) || monto < 0) {
+      return res.status(400).json({ mensaje: 'El monto de caja chica debe ser un número mayor o igual a cero' })
+    }
+
+    await pool.promise().query(
+      `INSERT INTO cierres_caja (fecha, caja_chica, notas) VALUES (?, ?, ?)
+       ON DUPLICATE KEY UPDATE caja_chica = VALUES(caja_chica), notas = VALUES(notas)`,
+      [fecha, monto, notas || null]
+    )
+
+    res.json({ mensaje: 'Cierre guardado', fecha, cajaChica: monto })
+  } catch (error) {
+    next(error)
+  }
+}
+
+module.exports = { obtenerResumen, obtenerAnaliticas, obtenerCierreDiario, guardarCierreDiario }

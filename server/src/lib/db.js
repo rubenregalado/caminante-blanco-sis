@@ -18,6 +18,11 @@ const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit:    10,
   queueLimit:         0,
+  // Sin esto mysql2 escribe los Date de JavaScript en UTC, mientras que MySQL
+  // llena created_at con la hora local del servidor. Quedaban dos convenciones
+  // en la misma tabla, con 6 horas de diferencia en Guatemala: una entrega de
+  // las 7 PM se guardaba con fecha del día siguiente y se caía del cierre.
+  timezone:           'local',
   typeCast(field, next) {
     if (field.type === 'NEWDECIMAL' || field.type === 'DECIMAL') {
       const val = field.string()

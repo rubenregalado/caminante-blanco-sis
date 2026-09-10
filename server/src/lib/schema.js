@@ -1,4 +1,4 @@
-const { mysqlTable, int, varchar, text, decimal, datetime, timestamp } = require('drizzle-orm/mysql-core')
+const { mysqlTable, int, varchar, text, decimal, datetime, timestamp, date } = require('drizzle-orm/mysql-core')
 const { relations } = require('drizzle-orm')
 
 const clientes = mysqlTable('clientes', {
@@ -57,6 +57,16 @@ const notificaciones = mysqlTable('notificaciones', {
   estado:    varchar('estado', { length: 20 }).notNull(),
 })
 
+// Cierre de caja de un día: cuánto se dejó en caja chica para el día siguiente.
+const cierresCaja = mysqlTable('cierres_caja', {
+  id:        int('id').primaryKey().autoincrement(),
+  fecha:     date('fecha', { mode: 'string' }).notNull().unique(),
+  cajaChica: decimal('caja_chica', { precision: 10, scale: 2 }).notNull().default('0'),
+  notas:     text('notas'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+})
+
 const clientesRelations = relations(clientes, ({ many }) => ({
   ordenes: many(ordenes),
 }))
@@ -80,6 +90,7 @@ module.exports = {
   ordenes,
   itemsOrden,
   notificaciones,
+  cierresCaja,
   clientesRelations,
   ordenesRelations,
   itemsOrdenRelations,

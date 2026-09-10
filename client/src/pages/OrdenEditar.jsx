@@ -2,15 +2,15 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { obtenerOrden, actualizarOrden } from '../api/ordenes'
 import Layout from '../components/Layout'
-import ItemOrdenForm, {
-  BotonAgregarItem,
+import ItemOrdenForm, { BotonAgregarItem } from '../components/ItemOrdenForm'
+import { formatearMoneda } from '../utils/formatters'
+import {
   MAX_ITEMS,
   aplicarCambioItem,
   itemDesdeAPI,
   itemVacio,
   serializarItemParaAPI,
-} from '../components/ItemOrdenForm'
-import { formatearMoneda } from '../utils/formatters'
+} from '../utils/itemsOrden'
 
 export default function OrdenEditar() {
   const { id } = useParams()

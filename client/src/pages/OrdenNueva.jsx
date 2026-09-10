@@ -3,14 +3,14 @@ import { useNavigate } from 'react-router-dom'
 import { crearOrden, siguienteNumeroOrden } from '../api/ordenes'
 import { listarClientes, crearCliente } from '../api/clientes'
 import Layout from '../components/Layout'
-import ItemOrdenForm, {
-  BotonAgregarItem,
+import ItemOrdenForm, { BotonAgregarItem } from '../components/ItemOrdenForm'
+import { formatearMoneda } from '../utils/formatters'
+import {
   MAX_ITEMS,
   aplicarCambioItem,
   itemVacio,
   serializarItemParaAPI,
-} from '../components/ItemOrdenForm'
-import { formatearMoneda } from '../utils/formatters'
+} from '../utils/itemsOrden'
 
 const PROMOCIONES = [
   {

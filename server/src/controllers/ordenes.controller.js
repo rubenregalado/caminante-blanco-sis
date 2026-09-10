@@ -1,6 +1,6 @@
 const { db } = require('../lib/db')
 const { clientes, ordenes, itemsOrden, notificaciones } = require('../lib/schema')
-const { eq, or, like, and, inArray, desc, asc, gte, lt } = require('drizzle-orm')
+const { eq, or, like, and, inArray, desc, asc, gte, lt, sql } = require('drizzle-orm')
 const { findOrden, findOrdenes } = require('../lib/helpers')
 const { generarNumeroOrden } = require('../utils/numeroOrden')
 const { enviarCorreoOrdenRecibida, enviarCorreoListoParaRecoger, enviarCorreoExpressListo } = require('../services/email.service')
@@ -234,7 +234,11 @@ const cambiarEstado = async (req, res, next) => {
     const dataUpdate = { estado }
     if (estado === 'listo') dataUpdate.urlFotosListo = urlFotosListo
     if (estado === 'entregado') {
-      dataUpdate.fechaEntregado    = new Date()
+      // NOW() y no new Date(): Drizzle serializa los Date de JS a UTC, mientras
+      // que created_at lo llena MySQL con su propia hora. Dejando que MySQL
+      // genere ambas, las dos columnas quedan en la misma zona horaria y el
+      // cierre del día no se parte a las 6 de la tarde.
+      dataUpdate.fechaEntregado    = sql`NOW()`
       dataUpdate.pagoEfectivo      = parseFloat(pagoEfectivo      || 0)
       dataUpdate.pagoTransferencia = parseFloat(pagoTransferencia || 0)
       dataUpdate.pagoTarjeta       = parseFloat(pagoTarjeta       || 0)

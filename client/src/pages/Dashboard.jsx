@@ -6,6 +6,7 @@ import Layout from '../components/Layout'
 import OrdenCard from '../components/OrdenCard'
 import { formatearMoneda, formatearFecha } from '../utils/formatters'
 import EstadoBadge from '../components/EstadoBadge'
+import ModalCierreDiario from '../components/ModalCierreDiario'
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
@@ -70,8 +71,16 @@ export default function Dashboard() {
   const [analiticas, setAnaliticas] = useState(null)
   const [cargando, setCargando] = useState(true)
   const [periodo, setPeriodo] = useState('dia')
+  const [mostrarCierre, setMostrarCierre] = useState(false)
   const [anio, setAnio] = useState(String(new Date().getFullYear()))
   const navigate = useNavigate()
+
+  // Se recarga también al guardar el cierre, para que la tarjeta de caja refleje
+  // el remanente sin tener que refrescar la página.
+  const cargarResumen = () =>
+    obtenerResumen()
+      .then(r => setResumen(r.data))
+      .catch(console.error)
 
   useEffect(() => {
     if (esAdmin) {
@@ -225,6 +234,52 @@ export default function Dashboard() {
               {formatearMoneda(resumen.cajaHoy.totalCobrado)}
             </span>
           </div>
+
+          {/* Estado del cajón: arranca con lo que quedó de caja chica y sube
+              conforme entra efectivo, hasta que el cierre define el remanente. */}
+          <div className="rounded-xl p-4 mb-3" style={{ backgroundColor: '#F0FDF4', border: '1px solid #BBF7D0' }}>
+            <div className="space-y-1 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-gray-600">Caja chica al iniciar el día</span>
+                <span className="font-medium text-gray-700">
+                  {formatearMoneda(resumen.cajaHoy.saldoInicial)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-600">Efectivo recibido hoy</span>
+                <span className="font-medium text-gray-700">
+                  + {formatearMoneda(resumen.cajaHoy.totalEfectivo)}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between border-t mt-2 pt-2" style={{ borderColor: '#BBF7D0' }}>
+              <span className="text-sm font-semibold" style={{ color: '#16A34A' }}>
+                En caja ahora
+              </span>
+              <span className="text-xl font-bold" style={{ color: '#16A34A' }}>
+                {formatearMoneda(resumen.cajaHoy.efectivoEnCaja)}
+              </span>
+            </div>
+
+            {resumen.cajaHoy.cierre && (
+              <div className="border-t mt-2 pt-2 space-y-1 text-sm" style={{ borderColor: '#BBF7D0' }}>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600">Queda en caja chica para mañana</span>
+                  <span className="font-semibold text-gray-700">
+                    {formatearMoneda(resumen.cajaHoy.cierre.cajaChica)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600">A retirar del cajón</span>
+                  <span className="font-semibold" style={{ color: '#3B30D0' }}>
+                    {formatearMoneda(resumen.cajaHoy.cierre.aRetirar)}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="grid grid-cols-3 gap-3">
             {[
               { label: 'Efectivo',      value: resumen.cajaHoy.totalEfectivo,       color: '#16A34A', bg: '#F0FDF4', borde: '#BBF7D0' },
@@ -237,7 +292,22 @@ export default function Dashboard() {
               </div>
             ))}
           </div>
+
+          <button
+            onClick={() => setMostrarCierre(true)}
+            className="w-full mt-4 py-2.5 rounded-xl border text-sm font-semibold transition-colors hover:bg-gray-50"
+            style={{ borderColor: '#3B30D0', color: '#3B30D0' }}
+          >
+            {resumen.cajaHoy.cierre ? 'Ver cierre del día' : 'Hacer cierre del día'}
+          </button>
         </div>
+      )}
+
+      {mostrarCierre && (
+        <ModalCierreDiario
+          onGuardado={cargarResumen}
+          onCerrar={() => setMostrarCierre(false)}
+        />
       )}
 
       {/* ── Proyección de ingresos del mes (solo admin) ── */}
