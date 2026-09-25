@@ -6,6 +6,7 @@ const {
   obtenerOrdenesCliente,
   crearCliente,
   actualizarCliente,
+  posiblesDuplicados,
   eliminarCliente
 } = require('../controllers/clientes.controller')
 
@@ -16,6 +17,7 @@ router.use(verificarToken)
 router.get('/', listarClientes)
 router.get('/:id', obtenerCliente)
 router.get('/:id/ordenes', obtenerOrdenesCliente)
+router.get('/:id/duplicados', posiblesDuplicados)
 router.post('/', crearCliente)
 router.put('/:id', actualizarCliente)
 router.delete('/:id', verificarAdmin, eliminarCliente)

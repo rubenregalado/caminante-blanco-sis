@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { crearOrden, siguienteNumeroOrden } from '../api/ordenes'
-import { listarClientes, crearCliente } from '../api/clientes'
+import { crearCliente } from '../api/clientes'
+import useBuscarClientes from '../hooks/useBuscarClientes'
 import Layout from '../components/Layout'
 import ItemOrdenForm, { BotonAgregarItem } from '../components/ItemOrdenForm'
 import { formatearMoneda } from '../utils/formatters'
@@ -84,9 +85,10 @@ export default function OrdenNueva() {
   const navigate = useNavigate()
   const [cargando, setCargando]       = useState(false)
   const [error, setError]             = useState('')
-  const [clientes, setClientes]       = useState([])
   const [buscarCliente, setBuscarCliente] = useState('')
   const [clienteId, setClienteId]     = useState('')
+  const [duplicados, setDuplicados]   = useState([])
+  const [avisoDuplicado, setAvisoDuplicado] = useState('')
   const [mostrarNuevoCliente, setMostrarNuevoCliente] = useState(false)
   const [nuevoCliente, setNuevoCliente] = useState({ nombre: '', telefono: '', nit: '', correo: '', genero: '', fechaNacimiento: '' })
   const [numeroPreview, setNumeroPreview] = useState('')
@@ -100,9 +102,7 @@ export default function OrdenNueva() {
     siguienteNumeroOrden().then(({ data }) => setNumeroPreview(data.numeroOrden)).catch(() => {})
   }, [])
 
-  useEffect(() => {
-    listarClientes(buscarCliente).then(({ data }) => setClientes(data))
-  }, [buscarCliente])
+  const { clientes, buscando: buscandoClientes } = useBuscarClientes(buscarCliente)
 
   const agregarItem = (tipo) => {
     if (items.length < MAX_ITEMS) setItems([...items, itemVacio(tipo)])
@@ -119,15 +119,29 @@ export default function OrdenNueva() {
   const totalFinal = Math.max(0, total - promoCalc.descuento)
   const nItemsConPrecio = items.filter(i => parseFloat(i.precio || 0) > 0).length
 
-  const handleGuardarCliente = async () => {
+  const seleccionarCliente = (c) => {
+    setClienteId(String(c.id))
+    setBuscarCliente(c.nombre)
+    setMostrarNuevoCliente(false)
+    setDuplicados([])
+    setAvisoDuplicado('')
+  }
+
+  // `forzar` solo llega en true cuando el mostrador ya vio el aviso de
+  // duplicado y confirmó que de verdad es otra persona.
+  const handleGuardarCliente = async (forzar = false) => {
     if (!nuevoCliente.nombre.trim()) return
+    setError('')
     try {
-      const { data } = await crearCliente({ ...nuevoCliente, nit: nuevoCliente.nit || 'CF' })
-      setClienteId(String(data.id))
-      setBuscarCliente(data.nombre)
-      setMostrarNuevoCliente(false)
+      const { data } = await crearCliente({ ...nuevoCliente, nit: nuevoCliente.nit || 'CF' }, forzar)
+      seleccionarCliente(data)
       setNuevoCliente({ nombre: '', telefono: '', nit: '', correo: '', genero: '', fechaNacimiento: '' })
-    } catch {
+    } catch (err) {
+      if (err.response?.status === 409 && err.response.data?.codigo === 'CLIENTE_DUPLICADO') {
+        setDuplicados(err.response.data.clientes || [])
+        setAvisoDuplicado(err.response.data.mensaje)
+        return
+      }
       setError('Error al crear el cliente')
     }
   }
@@ -198,14 +212,21 @@ export default function OrdenNueva() {
                 type="text"
                 value={buscarCliente}
                 onChange={e => { setBuscarCliente(e.target.value); setClienteId('') }}
-                placeholder="Buscar cliente por nombre..."
+                placeholder="Buscar por nombre, teléfono o correo..."
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:border-gray-400"
               />
-              {buscarCliente && !clienteId && clientes.length > 0 && (
+              {buscarCliente && !clienteId && (buscandoClientes || clientes.length === 0) && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg px-3 py-2 text-sm text-gray-500">
+                  {buscandoClientes
+                    ? 'Buscando...'
+                    : 'Sin coincidencias. Revisa cómo está escrito el nombre o busca por teléfono antes de crearlo de nuevo.'}
+                </div>
+              )}
+              {buscarCliente && !clienteId && !buscandoClientes && clientes.length > 0 && (
                 <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto">
                   {clientes.map(c => (
                     <button key={c.id} type="button"
-                      onClick={() => { setClienteId(String(c.id)); setBuscarCliente(c.nombre) }}
+                      onClick={() => seleccionarCliente(c)}
                       className="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm"
                     >
                       <span className="font-medium">{c.nombre}</span>
@@ -252,7 +273,31 @@ export default function OrdenNueva() {
                     className="w-full rounded border border-gray-300 px-2 py-1.5 text-sm mt-1" />
                 </div>
               </div>
-              <button type="button" onClick={handleGuardarCliente}
+              {avisoDuplicado && (
+                <div className="rounded-lg border border-amber-300 bg-amber-50 p-3">
+                  <p className="text-sm font-semibold text-amber-900">{avisoDuplicado}</p>
+                  <p className="text-xs text-amber-800 mt-1">
+                    Si es la misma persona, selecciónala en lugar de crearla otra vez:
+                  </p>
+                  <div className="mt-2 space-y-1">
+                    {duplicados.map(c => (
+                      <button key={c.id} type="button"
+                        onClick={() => seleccionarCliente(c)}
+                        className="w-full text-left px-3 py-2 rounded-lg bg-white border border-amber-200 hover:bg-amber-100 text-sm"
+                      >
+                        <span className="font-medium">{c.nombre}</span>
+                        {c.telefono && <span className="text-gray-500 ml-2 text-xs">{c.telefono}</span>}
+                        {c.correo   && <span className="text-gray-400 ml-2 text-xs">{c.correo}</span>}
+                      </button>
+                    ))}
+                  </div>
+                  <button type="button" onClick={() => handleGuardarCliente(true)}
+                    className="mt-2 text-xs underline text-amber-900">
+                    Es otra persona, crearlo de todas formas
+                  </button>
+                </div>
+              )}
+              <button type="button" onClick={() => handleGuardarCliente()}
                 className="text-white text-sm px-4 py-1.5 rounded-lg font-medium"
                 style={{ backgroundColor: '#3B30D0' }}>
                 Guardar cliente

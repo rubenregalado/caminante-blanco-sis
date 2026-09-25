@@ -1,45 +1,49 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { listarClientes, crearCliente } from '../api/clientes'
+import { crearCliente } from '../api/clientes'
+import useBuscarClientes from '../hooks/useBuscarClientes'
 import Layout from '../components/Layout'
 
 export default function Clientes() {
-  const [clientes, setClientes] = useState([])
-  const [cargando, setCargando] = useState(true)
   const [buscar, setBuscar] = useState('')
   const [mostrarForm, setMostrarForm] = useState(false)
   const [form, setForm] = useState({ nombre: '', telefono: '', nit: '', correo: '', genero: '', fechaNacimiento: '', direccion: '' })
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
+  const [duplicados, setDuplicados] = useState([])
+  const [avisoDuplicado, setAvisoDuplicado] = useState('')
   const navigate = useNavigate()
 
-  const cargar = (termino = '') => {
-    setCargando(true)
-    listarClientes(termino)
-      .then(({ data }) => setClientes(data))
-      .catch(console.error)
-      .finally(() => setCargando(false))
-  }
-
-  useEffect(() => { cargar() }, [])
+  // El buscador filtra mientras se escribe y descarta las respuestas viejas,
+  // para que la lista nunca quede vacía por una respuesta fuera de orden.
+  const { clientes, buscando, recargar } = useBuscarClientes(buscar)
 
   const handleBuscar = (e) => {
     e.preventDefault()
-    cargar(buscar)
+    recargar()
   }
 
-  const handleCrear = async (e) => {
-    e.preventDefault()
+  // `forzar` solo llega en true cuando ya se mostró el aviso de duplicado y
+  // el usuario confirmó que es otra persona.
+  const handleCrear = async (e, forzar = false) => {
+    if (e) e.preventDefault()
     if (!form.nombre.trim()) { setError('El nombre es requerido'); return }
     setGuardando(true)
     setError('')
     try {
-      await crearCliente({ ...form, nit: form.nit || 'CF' })
+      await crearCliente({ ...form, nit: form.nit || 'CF' }, forzar)
       setForm({ nombre: '', telefono: '', nit: '', correo: '', genero: '', fechaNacimiento: '', direccion: '' })
       setMostrarForm(false)
-      cargar()
-    } catch {
-      setError('Error al crear el cliente')
+      setDuplicados([])
+      setAvisoDuplicado('')
+      recargar()
+    } catch (err) {
+      if (err.response?.status === 409 && err.response.data?.codigo === 'CLIENTE_DUPLICADO') {
+        setDuplicados(err.response.data.clientes || [])
+        setAvisoDuplicado(err.response.data.mensaje)
+      } else {
+        setError('Error al crear el cliente')
+      }
     } finally {
       setGuardando(false)
     }
@@ -110,6 +114,30 @@ export default function Clientes() {
               />
             </div>
             {error && <p className="sm:col-span-2 text-red-600 text-sm">{error}</p>}
+            {avisoDuplicado && (
+              <div className="sm:col-span-2 rounded-lg border border-amber-300 bg-amber-50 p-3">
+                <p className="text-sm font-semibold text-amber-900">{avisoDuplicado}</p>
+                <p className="text-xs text-amber-800 mt-1">
+                  Si es la misma persona, abre su ficha en lugar de crearla otra vez:
+                </p>
+                <div className="mt-2 space-y-1">
+                  {duplicados.map(c => (
+                    <button key={c.id} type="button"
+                      onClick={() => navigate(`/clientes/${c.id}`)}
+                      className="w-full text-left px-3 py-2 rounded-lg bg-white border border-amber-200 hover:bg-amber-100 text-sm"
+                    >
+                      <span className="font-medium">{c.nombre}</span>
+                      {c.telefono && <span className="text-gray-500 ml-2 text-xs">{c.telefono}</span>}
+                      {c.correo   && <span className="text-gray-400 ml-2 text-xs">{c.correo}</span>}
+                    </button>
+                  ))}
+                </div>
+                <button type="button" onClick={() => handleCrear(null, true)}
+                  className="mt-2 text-xs underline text-amber-900">
+                  Es otra persona, crearlo de todas formas
+                </button>
+              </div>
+            )}
             <div className="sm:col-span-2 flex gap-3">
               <button
                 type="button"
@@ -136,21 +164,23 @@ export default function Clientes() {
           type="text"
           value={buscar}
           onChange={(e) => setBuscar(e.target.value)}
-          placeholder="Buscar por nombre, teléfono o NIT..."
+          placeholder="Buscar por nombre, teléfono, correo o NIT..."
           className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none"
         />
         <button type="submit" className="bg-gray-800 text-white px-3 sm:px-4 py-2 rounded-lg text-sm font-medium">
           Buscar
         </button>
         {buscar && (
-          <button type="button" onClick={() => { setBuscar(''); cargar() }} className="px-3 py-2 rounded-lg border border-gray-300 text-sm">✕</button>
+          <button type="button" onClick={() => setBuscar('')} className="px-3 py-2 rounded-lg border border-gray-300 text-sm">✕</button>
         )}
       </form>
 
-      {cargando ? (
-        <div className="text-center text-gray-400 py-12">Cargando...</div>
+      {buscando ? (
+        <div className="text-center text-gray-400 py-12">Buscando...</div>
       ) : clientes.length === 0 ? (
-        <div className="text-center text-gray-400 py-12">Sin clientes registrados</div>
+        <div className="text-center text-gray-400 py-12">
+          {buscar ? `Sin coincidencias para "${buscar}"` : 'Sin clientes registrados'}
+        </div>
       ) : (
         <>
           {/* Tabla — visible en sm+ */}
