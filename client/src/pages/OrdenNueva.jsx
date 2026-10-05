@@ -89,6 +89,7 @@ export default function OrdenNueva() {
   const [clienteId, setClienteId]     = useState('')
   const [duplicados, setDuplicados]   = useState([])
   const [avisoDuplicado, setAvisoDuplicado] = useState('')
+  const [guardandoCliente, setGuardandoCliente] = useState(false)
   const [mostrarNuevoCliente, setMostrarNuevoCliente] = useState(false)
   const [nuevoCliente, setNuevoCliente] = useState({ nombre: '', telefono: '', nit: '', correo: '', genero: '', fechaNacimiento: '' })
   const [numeroPreview, setNumeroPreview] = useState('')
@@ -131,6 +132,11 @@ export default function OrdenNueva() {
   // duplicado y confirmó que de verdad es otra persona.
   const handleGuardarCliente = async (forzar = false) => {
     if (!nuevoCliente.nombre.trim()) return
+    // Candado contra el doble clic: sin él, cada clic mientras la petición
+    // seguía en vuelo creaba otro cliente idéntico. Así nacieron los grupos de
+    // copias con 0 órdenes.
+    if (guardandoCliente) return
+    setGuardandoCliente(true)
     setError('')
     try {
       const { data } = await crearCliente({ ...nuevoCliente, nit: nuevoCliente.nit || 'CF' }, forzar)
@@ -143,6 +149,8 @@ export default function OrdenNueva() {
         return
       }
       setError('Error al crear el cliente')
+    } finally {
+      setGuardandoCliente(false)
     }
   }
 
@@ -292,15 +300,17 @@ export default function OrdenNueva() {
                     ))}
                   </div>
                   <button type="button" onClick={() => handleGuardarCliente(true)}
-                    className="mt-2 text-xs underline text-amber-900">
+                    disabled={guardandoCliente}
+                    className="mt-2 text-xs underline text-amber-900 disabled:opacity-50">
                     Es otra persona, crearlo de todas formas
                   </button>
                 </div>
               )}
               <button type="button" onClick={() => handleGuardarCliente()}
-                className="text-white text-sm px-4 py-1.5 rounded-lg font-medium"
+                disabled={guardandoCliente}
+                className="text-white text-sm px-4 py-1.5 rounded-lg font-medium disabled:opacity-60"
                 style={{ backgroundColor: '#3B30D0' }}>
-                Guardar cliente
+                {guardandoCliente ? 'Guardando...' : 'Guardar cliente'}
               </button>
             </div>
           )}
