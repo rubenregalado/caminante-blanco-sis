@@ -204,6 +204,7 @@ export default function Clientes() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
+                  <th className="px-4 py-3 text-left font-medium text-gray-600 w-16">ID</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-600">Nombre</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-600">Teléfono</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-600">Correo</th>
@@ -218,6 +219,7 @@ export default function Clientes() {
                     onClick={() => navigate(`/clientes/${cliente.id}`)}
                     className="hover:bg-blue-50 cursor-pointer transition-colors"
                   >
+                    <td className="px-4 py-3 text-gray-400 tabular-nums">{cliente.id}</td>
                     <td className="px-4 py-3 font-medium text-gray-900">{cliente.nombre}</td>
                     <td className="px-4 py-3 text-gray-600">{cliente.telefono || '—'}</td>
                     <td className="px-4 py-3 text-gray-600">{cliente.correo || '—'}</td>
@@ -238,7 +240,10 @@ export default function Clientes() {
                 className="bg-white rounded-xl border border-gray-200 p-4 cursor-pointer active:bg-gray-50"
               >
                 <div className="flex items-center justify-between">
-                  <p className="font-semibold text-gray-900">{cliente.nombre}</p>
+                  <p className="font-semibold text-gray-900">
+                    <span className="text-gray-400 font-normal tabular-nums mr-2">#{cliente.id}</span>
+                    {cliente.nombre}
+                  </p>
                   <span className="text-xs text-gray-400">{cliente._count?.ordenes || 0} órdenes</span>
                 </div>
                 {cliente.telefono && <p className="text-sm text-gray-500 mt-1">{cliente.telefono}</p>}
