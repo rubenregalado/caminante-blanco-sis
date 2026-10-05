@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { crearCliente } from '../api/clientes'
 import useBuscarClientes from '../hooks/useBuscarClientes'
@@ -17,6 +17,13 @@ export default function Clientes() {
   // El buscador filtra mientras se escribe y descarta las respuestas viejas,
   // para que la lista nunca quede vacía por una respuesta fuera de orden.
   const { clientes, buscando, recargar } = useBuscarClientes(buscar)
+
+  // Total sin filtrar, para poder contrastar contra la base de datos de un
+  // vistazo. Se guarda cada vez que la lista se carga sin término de búsqueda.
+  const [totalClientes, setTotalClientes] = useState(0)
+  useEffect(() => {
+    if (!buscar && !buscando) setTotalClientes(clientes.length)
+  }, [buscar, buscando, clientes])
 
   const handleBuscar = (e) => {
     e.preventDefault()
@@ -52,7 +59,16 @@ export default function Clientes() {
   return (
     <Layout>
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Clientes</h2>
+        <div>
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Clientes</h2>
+          {!buscando && (
+            <p className="text-sm text-gray-500 mt-0.5">
+              {buscar
+                ? `${clientes.length} de ${totalClientes} clientes`
+                : `${clientes.length} clientes registrados`}
+            </p>
+          )}
+        </div>
         <button
           onClick={() => setMostrarForm(!mostrarForm)}
           className="text-white px-3 sm:px-4 py-2 rounded-lg text-sm font-medium"
