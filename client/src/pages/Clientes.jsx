@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { crearCliente } from '../api/clientes'
+import { crearCliente, eliminarCliente } from '../api/clientes'
 import useBuscarClientes from '../hooks/useBuscarClientes'
+import ModalConfirmar from '../components/ModalConfirmar'
+import { useAuth } from '../context/AuthContext'
 import Layout from '../components/Layout'
 
 export default function Clientes() {
@@ -9,6 +11,10 @@ export default function Clientes() {
   const [mostrarForm, setMostrarForm] = useState(false)
   const [form, setForm] = useState({ nombre: '', telefono: '', nit: '', correo: '', genero: '', fechaNacimiento: '', direccion: '' })
   const [guardando, setGuardando] = useState(false)
+  const [clienteAEliminar, setClienteAEliminar] = useState(null)
+  const [eliminando, setEliminando] = useState(false)
+  const [errorEliminar, setErrorEliminar] = useState('')
+  const { esAdmin } = useAuth()
   const [error, setError] = useState('')
   const [duplicados, setDuplicados] = useState([])
   const [avisoDuplicado, setAvisoDuplicado] = useState('')
@@ -28,6 +34,22 @@ export default function Clientes() {
   const handleBuscar = (e) => {
     e.preventDefault()
     recargar()
+  }
+
+  const handleEliminar = async () => {
+    setEliminando(true)
+    setErrorEliminar('')
+    try {
+      await eliminarCliente(clienteAEliminar.id)
+      setClienteAEliminar(null)
+      recargar()
+    } catch (err) {
+      // El servidor rechaza borrar un cliente que tenga órdenes, para no
+      // dejar historial huérfano. Se muestra su mensaje tal cual.
+      setErrorEliminar(err.response?.data?.mensaje || 'No se pudo eliminar el cliente')
+    } finally {
+      setEliminando(false)
+    }
   }
 
   // `forzar` solo llega en true cuando ya se mostró el aviso de duplicado y
@@ -210,6 +232,7 @@ export default function Clientes() {
                   <th className="px-4 py-3 text-left font-medium text-gray-600">Correo</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-600">NIT</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-600">Órdenes</th>
+                  {esAdmin && <th className="px-4 py-3 w-12"></th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -225,6 +248,25 @@ export default function Clientes() {
                     <td className="px-4 py-3 text-gray-600">{cliente.correo || '—'}</td>
                     <td className="px-4 py-3 text-gray-600">{cliente.nit || '—'}</td>
                     <td className="px-4 py-3 text-gray-600">{cliente._count?.ordenes || 0}</td>
+                    {esAdmin && (
+                      <td className="px-4 py-3">
+                        {/* stopPropagation: el renglón entero navega al detalle */}
+                        <button
+                          type="button"
+                          title={cliente._count?.ordenes
+                            ? 'No se puede eliminar: tiene órdenes'
+                            : 'Eliminar cliente'}
+                          disabled={!!cliente._count?.ordenes}
+                          onClick={(e) => { e.stopPropagation(); setErrorEliminar(''); setClienteAEliminar(cliente) }}
+                          className="text-gray-400 hover:text-red-600 disabled:text-gray-200 disabled:cursor-not-allowed"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round"
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -248,10 +290,32 @@ export default function Clientes() {
                 </div>
                 {cliente.telefono && <p className="text-sm text-gray-500 mt-1">{cliente.telefono}</p>}
                 {cliente.correo && <p className="text-sm text-gray-500">{cliente.correo}</p>}
+                {esAdmin && !cliente._count?.ordenes && (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setErrorEliminar(''); setClienteAEliminar(cliente) }}
+                    className="mt-2 text-xs text-red-600"
+                  >
+                    Eliminar
+                  </button>
+                )}
               </div>
             ))}
           </div>
         </>
+      )}
+
+      {clienteAEliminar && (
+        <ModalConfirmar
+          titulo="Eliminar cliente"
+          mensaje={
+            errorEliminar ||
+            `Se eliminará a "${clienteAEliminar.nombre}" de forma permanente. Esta acción no se puede deshacer.`
+          }
+          cargando={eliminando}
+          onConfirmar={handleEliminar}
+          onCancelar={() => { setClienteAEliminar(null); setErrorEliminar('') }}
+        />
       )}
     </Layout>
   )
