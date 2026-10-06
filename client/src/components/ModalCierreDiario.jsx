@@ -62,12 +62,26 @@ export default function ModalCierreDiario({ fecha, onCerrar, onGuardado }) {
     setGuardando(true)
     try {
       await guardarCierreDiario({ fecha: cierre.fecha, cajaChica: montoCajaChica, notas })
+
+      // Se vuelve a leer del servidor y se comprueba que el monto realmente
+      // quedó guardado. Sin esto, un guardado que no llegó a la base se veía
+      // igual que uno exitoso y el saldo del día siguiente salía mal.
       const { data } = await obtenerCierreDiario(cierre.fecha)
       setCierre(data)
-      setMensaje('✅ Cierre guardado')
+
+      if (!data.cierre) {
+        setError(`El servidor respondió correctamente, pero el cierre del ${cierre.fecha} no quedó guardado. Avisa a soporte.`)
+        return
+      }
+
+      setMensaje(`✅ Cierre guardado — quedan ${formatearMoneda(data.cierre.cajaChica)} para mañana`)
       onGuardado?.()
     } catch (err) {
-      setError(err.response?.data?.mensaje || 'No se pudo guardar el cierre')
+      // Se muestra el detalle real (código HTTP y mensaje del servidor) para
+      // poder diagnosticar en vez de adivinar.
+      const estado  = err.response?.status
+      const detalle = err.response?.data?.mensaje || err.message
+      setError(estado ? `Error ${estado}: ${detalle}` : `Sin respuesta del servidor: ${detalle}`)
     } finally {
       setGuardando(false)
     }

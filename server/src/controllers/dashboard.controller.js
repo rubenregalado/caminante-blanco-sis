@@ -413,13 +413,21 @@ const guardarCierreDiario = async (req, res, next) => {
       return res.status(400).json({ mensaje: 'El monto de caja chica debe ser un número mayor o igual a cero' })
     }
 
-    await pool.promise().query(
+    const [resultado] = await pool.promise().query(
       `INSERT INTO cierres_caja (fecha, caja_chica, notas) VALUES (?, ?, ?)
        ON DUPLICATE KEY UPDATE caja_chica = VALUES(caja_chica), notas = VALUES(notas)`,
       [fecha, monto, notas || null]
     )
 
-    res.json({ mensaje: 'Cierre guardado', fecha, cajaChica: monto })
+    // Queda en el log del servidor para poder rastrear un cierre que no
+    // aparezca luego en la tabla: si no hay línea, la petición nunca llegó.
+    // affectedRows 2 significa que se corrigió una fila que ya existía.
+    console.log(
+      `[cierre] ${req.usuario?.usuario || 'desconocido'} guardó ${fecha} = Q${monto} ` +
+      `(affectedRows: ${resultado.affectedRows})`
+    )
+
+    res.json({ mensaje: 'Cierre guardado', fecha, cajaChica: monto, affectedRows: resultado.affectedRows })
   } catch (error) {
     next(error)
   }
