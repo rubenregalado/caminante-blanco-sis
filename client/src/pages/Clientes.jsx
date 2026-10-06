@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { crearCliente, eliminarCliente } from '../api/clientes'
 import useBuscarClientes from '../hooks/useBuscarClientes'
 import ModalConfirmar from '../components/ModalConfirmar'
+import ModalEditarCliente from '../components/ModalEditarCliente'
+import ClienteCampos from '../components/ClienteCampos'
 import { useAuth } from '../context/AuthContext'
 import Layout from '../components/Layout'
 
@@ -14,6 +16,11 @@ export default function Clientes() {
   const [clienteAEliminar, setClienteAEliminar] = useState(null)
   const [eliminando, setEliminando] = useState(false)
   const [errorEliminar, setErrorEliminar] = useState('')
+  const [clienteAEditar, setClienteAEditar] = useState(null)
+  // Ids marcados con la casilla, para el borrado en lote.
+  const [seleccionados, setSeleccionados] = useState([])
+  const [confirmarLote, setConfirmarLote] = useState(false)
+  const [resultadoLote, setResultadoLote] = useState(null)
   const { esAdmin } = useAuth()
   const [error, setError] = useState('')
   const [duplicados, setDuplicados] = useState([])
@@ -50,6 +57,48 @@ export default function Clientes() {
     } finally {
       setEliminando(false)
     }
+  }
+
+  // Solo son seleccionables los clientes sin órdenes: el servidor rechaza
+  // borrar a los que tienen historial, así que marcarlos no serviría de nada.
+  const seleccionables = clientes.filter(c => !c._count?.ordenes)
+  const todosMarcados = seleccionables.length > 0 && seleccionados.length === seleccionables.length
+
+  const alternarSeleccion = (id) => {
+    setResultadoLote(null)
+    setSeleccionados(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    )
+  }
+
+  const alternarTodos = () => {
+    setResultadoLote(null)
+    setSeleccionados(todosMarcados ? [] : seleccionables.map(c => c.id))
+  }
+
+  // Borra uno por uno y reporta el resultado. Si alguno falla (por ejemplo
+  // porque le registraron una orden mientras tanto), los demás igual se
+  // borran y se informa cuántos quedaron fuera.
+  const handleEliminarLote = async () => {
+    setEliminando(true)
+    let borrados = 0
+    const fallidos = []
+
+    for (const id of seleccionados) {
+      try {
+        await eliminarCliente(id)
+        borrados++
+      } catch {
+        const cliente = clientes.find(c => c.id === id)
+        fallidos.push(cliente?.nombre || `ID ${id}`)
+      }
+    }
+
+    setEliminando(false)
+    setConfirmarLote(false)
+    setSeleccionados([])
+    setResultadoLote({ borrados, fallidos })
+    recargar()
   }
 
   // `forzar` solo llega en true cuando ya se mostró el aviso de duplicado y
@@ -104,53 +153,7 @@ export default function Clientes() {
         <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 mb-6">
           <h3 className="font-semibold text-gray-900 mb-4">Nuevo cliente</h3>
           <form onSubmit={handleCrear} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {[
-              ['nombre', 'Nombre *', 'text'],
-              ['telefono', 'Teléfono', 'text'],
-              ['nit', 'NIT (CF si no tiene)', 'text'],
-              ['correo', 'Correo electrónico', 'email'],
-            ].map(([campo, label, tipo]) => (
-              <div key={campo}>
-                <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-                <input
-                  type={tipo}
-                  value={form[campo]}
-                  onChange={(e) => setForm({ ...form, [campo]: e.target.value })}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                />
-              </div>
-            ))}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Género</label>
-              <select
-                value={form.genero}
-                onChange={(e) => setForm({ ...form, genero: e.target.value })}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white"
-              >
-                <option value="">Sin especificar</option>
-                <option value="masculino">Masculino</option>
-                <option value="femenino">Femenino</option>
-                <option value="otro">Otro</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Fecha de nacimiento</label>
-              <input
-                type="date"
-                value={form.fechaNacimiento}
-                onChange={(e) => setForm({ ...form, fechaNacimiento: e.target.value })}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-              />
-            </div>
-            <div className="sm:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
-              <input
-                type="text"
-                value={form.direccion}
-                onChange={(e) => setForm({ ...form, direccion: e.target.value })}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-              />
-            </div>
+            <ClienteCampos valores={form} onCambio={setForm} />
             {error && <p className="sm:col-span-2 text-red-600 text-sm">{error}</p>}
             {avisoDuplicado && (
               <div className="sm:col-span-2 rounded-lg border border-amber-300 bg-amber-50 p-3">
@@ -213,6 +216,43 @@ export default function Clientes() {
         )}
       </form>
 
+      {resultadoLote && (
+        <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm">
+          <span className="text-gray-800">
+            Se eliminaron {resultadoLote.borrados} cliente(s).
+          </span>
+          {resultadoLote.fallidos.length > 0 && (
+            <span className="text-amber-800 block mt-1">
+              No se pudo eliminar a {resultadoLote.fallidos.join(', ')} (tienen órdenes).
+            </span>
+          )}
+        </div>
+      )}
+
+      {esAdmin && seleccionados.length > 0 && (
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+          <p className="text-sm font-medium text-red-900">
+            {seleccionados.length} cliente(s) seleccionado(s)
+          </p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setSeleccionados([])}
+              className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white text-sm text-gray-700"
+            >
+              Quitar selección
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmarLote(true)}
+              className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700"
+            >
+              Eliminar seleccionados
+            </button>
+          </div>
+        </div>
+      )}
+
       {buscando ? (
         <div className="text-center text-gray-400 py-12">Buscando...</div>
       ) : clientes.length === 0 ? (
@@ -226,13 +266,24 @@ export default function Clientes() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
+                  {esAdmin && (
+                    <th className="px-4 py-3 w-10">
+                      <input
+                        type="checkbox"
+                        checked={todosMarcados}
+                        onChange={alternarTodos}
+                        title="Seleccionar todos los que no tienen órdenes"
+                        className="cursor-pointer"
+                      />
+                    </th>
+                  )}
                   <th className="px-4 py-3 text-left font-medium text-gray-600 w-16">#</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-600">Nombre</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-600">Teléfono</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-600">Correo</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-600">NIT</th>
                   <th className="px-4 py-3 text-left font-medium text-gray-600">Órdenes</th>
-                  {esAdmin && <th className="px-4 py-3 w-12"></th>}
+                  <th className="px-4 py-3 w-20"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -242,31 +293,58 @@ export default function Clientes() {
                     onClick={() => navigate(`/clientes/${cliente.id}`)}
                     className="hover:bg-blue-50 cursor-pointer transition-colors"
                   >
+                    {esAdmin && (
+                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={seleccionados.includes(cliente.id)}
+                          disabled={!!cliente._count?.ordenes}
+                          onChange={() => alternarSeleccion(cliente.id)}
+                          title={cliente._count?.ordenes
+                            ? 'Tiene órdenes: no se puede eliminar'
+                            : 'Seleccionar para eliminar'}
+                          className="cursor-pointer disabled:cursor-not-allowed"
+                        />
+                      </td>
+                    )}
                     <td className="px-4 py-3 text-gray-400 tabular-nums">{i + 1}</td>
                     <td className="px-4 py-3 font-medium text-gray-900">{cliente.nombre}</td>
                     <td className="px-4 py-3 text-gray-600">{cliente.telefono || '—'}</td>
                     <td className="px-4 py-3 text-gray-600">{cliente.correo || '—'}</td>
                     <td className="px-4 py-3 text-gray-600">{cliente.nit || '—'}</td>
                     <td className="px-4 py-3 text-gray-600">{cliente._count?.ordenes || 0}</td>
-                    {esAdmin && (
-                      <td className="px-4 py-3">
-                        {/* stopPropagation: el renglón entero navega al detalle */}
+                    {/* stopPropagation: el renglón entero navega al detalle */}
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center gap-3">
                         <button
                           type="button"
-                          title={cliente._count?.ordenes
-                            ? 'No se puede eliminar: tiene órdenes'
-                            : 'Eliminar cliente'}
-                          disabled={!!cliente._count?.ordenes}
-                          onClick={(e) => { e.stopPropagation(); setErrorEliminar(''); setClienteAEliminar(cliente) }}
-                          className="text-gray-400 hover:text-red-600 disabled:text-gray-200 disabled:cursor-not-allowed"
+                          title="Editar cliente"
+                          onClick={() => setClienteAEditar(cliente)}
+                          className="text-gray-400 hover:text-blue-600"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round"
-                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                           </svg>
                         </button>
-                      </td>
-                    )}
+                        {esAdmin && (
+                          <button
+                            type="button"
+                            title={cliente._count?.ordenes
+                              ? 'No se puede eliminar: tiene órdenes'
+                              : 'Eliminar cliente'}
+                            disabled={!!cliente._count?.ordenes}
+                            onClick={() => { setErrorEliminar(''); setClienteAEliminar(cliente) }}
+                            className="text-gray-400 hover:text-red-600 disabled:text-gray-200 disabled:cursor-not-allowed"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round"
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -290,19 +368,56 @@ export default function Clientes() {
                 </div>
                 {cliente.telefono && <p className="text-sm text-gray-500 mt-1">{cliente.telefono}</p>}
                 {cliente.correo && <p className="text-sm text-gray-500">{cliente.correo}</p>}
-                {esAdmin && !cliente._count?.ordenes && (
+                <div className="mt-2 flex items-center gap-4" onClick={(e) => e.stopPropagation()}>
                   <button
                     type="button"
-                    onClick={(e) => { e.stopPropagation(); setErrorEliminar(''); setClienteAEliminar(cliente) }}
-                    className="mt-2 text-xs text-red-600"
+                    onClick={() => setClienteAEditar(cliente)}
+                    className="text-xs text-blue-600"
                   >
-                    Eliminar
+                    Editar
                   </button>
-                )}
+                  {esAdmin && !cliente._count?.ordenes && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => { setErrorEliminar(''); setClienteAEliminar(cliente) }}
+                        className="text-xs text-red-600"
+                      >
+                        Eliminar
+                      </button>
+                      <label className="text-xs text-gray-500 flex items-center gap-1.5">
+                        <input
+                          type="checkbox"
+                          checked={seleccionados.includes(cliente.id)}
+                          onChange={() => alternarSeleccion(cliente.id)}
+                        />
+                        Seleccionar
+                      </label>
+                    </>
+                  )}
+                </div>
               </div>
             ))}
           </div>
         </>
+      )}
+
+      {clienteAEditar && (
+        <ModalEditarCliente
+          cliente={clienteAEditar}
+          onGuardado={() => { setClienteAEditar(null); recargar() }}
+          onCancelar={() => setClienteAEditar(null)}
+        />
+      )}
+
+      {confirmarLote && (
+        <ModalConfirmar
+          titulo={`Eliminar ${seleccionados.length} cliente(s)`}
+          mensaje={`Se eliminarán ${seleccionados.length} cliente(s) de forma permanente. Esta acción no se puede deshacer.`}
+          cargando={eliminando}
+          onConfirmar={handleEliminarLote}
+          onCancelar={() => setConfirmarLote(false)}
+        />
       )}
 
       {clienteAEliminar && (
